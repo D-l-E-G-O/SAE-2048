@@ -30,8 +30,8 @@ all: directories $(TARGETS)
 
 # 2. Création des répertoires de build s'ils n'existent pas
 directories:
-  @mkdir -p $(OBJ_DIR)
-  @mkdir -p $(BIN_DIR)
+	@mkdir -p $(OBJ_DIR)
+	@mkdir -p $(BIN_DIR)
 
 # ==========================================
 #   Règles de Linkage (Création des exécutables)
