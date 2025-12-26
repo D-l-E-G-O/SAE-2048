@@ -1,4 +1,4 @@
-# SAE 2048
+# SAE 2048 ![Static Badge](https://img.shields.io/badge/Statut-En%20Cours-green)
 
 **SAE 2048** est un projet de 2e année de **BUT Informatique à l’IUT d’Illkirch** développé en C dont le but est de reproduire le célèbre jeu **2048**.
 Il met en oeuvre une **séparation stricte des responsabilités** via plusieurs **processus** (Entrée, Jeu, Affichage) et **threads**, communiquant entre eux par des **pipes** (nommés et anonymes) et des **signaux**.
