@@ -1,0 +1,21 @@
+# --- Build Artifacts ---
+bin/
+obj/
+*.o
+*.exe
+*.out
+
+# --- IPC & System ---
+# On ignore le pipe nommé s'il est créé en local par erreur,
+# même si le chemin officiel est dans /tmp
+*.fifo
+/tmp/fifo_2048_input
+
+# --- IDE & Editors ---
+.vscode/
+!*.code-workspace
+.DS_Store
+# Fichiers temporaires (Vim, Nano, crash dumps)
+*.swp
+*~
+*.tmp
