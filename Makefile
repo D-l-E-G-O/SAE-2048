@@ -38,10 +38,16 @@ directories:
 # ==========================================
 
 # A. Processus Principal (Moteur de jeu + Threads)
-# Dépendances : game_process, game_logic, utils
-$(TARGET_GAME): $(OBJ_DIR)/game_process.o $(OBJ_DIR)/game_logic.o $(OBJ_DIR)/utils.o
+# Dépendances : game_main, thread_move, thread_goal, game_logic, utils
+GAME_OBJS = $(OBJ_DIR)/game_main.o \
+            $(OBJ_DIR)/thread_move.o \
+            $(OBJ_DIR)/thread_goal.o \
+            $(OBJ_DIR)/game_logic.o \
+            $(OBJ_DIR)/utils.o
+
+$(TARGET_GAME): $(GAME_OBJS)
 	@echo "Linking Game Engine..."
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $^
 
 # B. Processus Input (Gestion clavier)
 # Dépendances : input_process, utils
@@ -73,7 +79,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c $(INC_DIR)/*.h
 clean:
 	@echo "Cleaning up..."
 	rm -rf $(OBJ_DIR) $(BIN_DIR)
-	rm -f /tmp/fifo_2048_input  # Nettoyage optionnel du pipe nommé
+	rm -f /tmp/fifo_2048_input
 
 # Pour éviter les conflits avec des fichiers qui s'appelleraient 'clean' ou 'all'
 .PHONY: all clean directories
