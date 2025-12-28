@@ -10,7 +10,7 @@
 int check_victory(int cells[GRID_SIZE][GRID_SIZE]) {
     for (int i = 0; i < GRID_SIZE; i++) {
         for (int j = 0; j < GRID_SIZE; j++) {
-            if (cells[i][j] == TARGET_VAL) return 1;*
+            if (cells[i][j] == TARGET_VAL) return 1;
         }
     }
     return 0;
@@ -42,9 +42,8 @@ int check_defeat(int cells[GRID_SIZE][GRID_SIZE]) {
 // --- Routine du Thread Goal ---
 
 void *thread_goal_routine(void *arg) {
-    GoalThreadArgs *args = (GoalThreadArgs *)arg;
-    int pipe_fd = args->pipe_fd;
-    pid_t display_pid = args->display_pid;
+    // Récupération de l'argument
+    int display_fd = *((int *)arg);
 
     while (1) {
         // 1. Verrouiller le Mutex
@@ -67,21 +66,17 @@ void *thread_goal_routine(void *arg) {
             current_state.victory = false;
             current_state.game_over = true; // On arrête le jeu si perdu
         } 
-        else {
-            current_state.game_over = false; // Le jeu continue
-        }
 
         // 3. IPC Display : Écrire tout le GameState dans le Pipe Anonyme
-        write(pipe_fd, &current_state, sizeof(GameState));
+        if (write(display_fd, &current_state, sizeof(GameState)) == -1) {
+            perror("[GOAL] Erreur write pipe");
+        }
 
-        // 4. Envoyer signal SIG_UPDATE_DISPLAY (SIGUSR1) au processus Affichage
-        kill(display_pid, SIG_UPDATE_DISPLAY);
-
-        // 5. Déverrouiller le Mutex
+        // 4. Déverrouiller le Mutex
         pthread_mutex_unlock(&state_mutex);
 
         if (current_state.game_over) {
-            break
+            break;
         }
     }
 

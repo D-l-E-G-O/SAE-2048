@@ -26,12 +26,6 @@ typedef struct InputSharedData {
     pthread_cond_t cond;
 } InputSharedData;
 
-// Structure pour passer les arguments au Thread Goal
-typedef struct {
-    int pipe_fd;        // Descripteur d'écriture du pipe anonyme
-    pid_t display_pid;  // PID du processus d'affichage
-} GoalThreadArgs;
-
 extern InputSharedData input_data;   // Données venant du clavier
 
 // --- PROTOTYPES DES FONCTIONS DE THREADS ---
