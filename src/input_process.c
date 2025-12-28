@@ -69,7 +69,7 @@ int main(void)
     // Cela permet au serveur de savoir quel processus (PID) vient de se connecter.
     InputPacket pkt;
     pkt.cmd = CMD_HANDSHAKE;
-    pkt.pid = getpid(); // Récupère l'ID du processus actuel
+    pkt.sender_pid = getpid(); // Récupère l'ID du processus actuel
 
     // Envoi du paquet de handshake dans le tube
     write(fd, &pkt, sizeof(InputPacket));
@@ -85,7 +85,7 @@ int main(void)
         int command = read_input_command();
 
         // Réinitialisation des champs du paquet pour éviter d'envoyer d'anciennes données
-        pkt.pid = 0;
+        pkt.sender_pid = 0;
         pkt.cmd = command;
 
         if (command == CMD_QUIT) {
