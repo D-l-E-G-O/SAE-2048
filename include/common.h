@@ -7,6 +7,9 @@
 #define GRID_SIZE 4
 #define TARGET_VAL 2048
 
+// --- SIGNAUX DU JEU ---
+#define SIG_CLEAN_EXIT SIGINT  // Signal pour demander un arrêt propre
+
 // --- CONFIGURATION IPC ---
 // Chemin du pipe nommé créé par le processus Input
 #define NAMED_PIPE_PATH "/tmp/fifo_2048_input"

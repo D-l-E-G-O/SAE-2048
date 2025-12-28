@@ -33,7 +33,7 @@ void draw_interface(const GameState *state) {
     clear_screen(); // Fonction définie dans utils.c
 
     // En-tête
-    printf(COLOR_BOLD "=== 2048 ===" COLOR_RESET "\n");
+    printf(COLOR_BOLD "\n=== 2048 ===" COLOR_RESET "\n");
     printf("Score: " COLOR_SCORE "%d" COLOR_RESET "\n\n", state->score);
 
     // Dessin de la grille ligne par ligne
@@ -91,7 +91,6 @@ void draw_interface(const GameState *state) {
         } else {
             printf(COLOR_LOSE COLOR_BOLD "GAME OVER... No more moves.\n" COLOR_RESET);
         }
-        printf("Press Q in the Input Window to leave.\n");
     }
 
     // Forcer l'affichage immédiat

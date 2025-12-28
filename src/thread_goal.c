@@ -1,8 +1,5 @@
 #include "../include/game_threads.h"
 #include "../include/utils.h"
-#include <stdio.h>
-#include <unistd.h>
-#include <signal.h>
 
 // --- Fonctions utilitaires ---
 
@@ -45,7 +42,7 @@ void *thread_goal_routine(void *arg) {
     // Récupération de l'argument
     int display_fd = *((int *)arg);
 
-    while (1) {
+    while (true) {
         // 1. Verrouiller le Mutex
         pthread_mutex_lock(&state_mutex);
 
@@ -76,6 +73,7 @@ void *thread_goal_routine(void *arg) {
         pthread_mutex_unlock(&state_mutex);
 
         if (current_state.game_over) {
+            pthread_kill(main_thread_id, SIG_CLEAN_EXIT);
             break;
         }
     }

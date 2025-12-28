@@ -1,3 +1,4 @@
+#define _XOPEN_SOURCE 700
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>     // read, write, close, sleep
@@ -5,9 +6,13 @@
 #include <sys/stat.h>   // mkfifo
 #include <errno.h>
 #include <termios.h>
+#include <signal.h>
 
 #include "../include/utils.h"
 #include "../include/common.h"
+
+// Globale pour signaler l'arrêt demandé
+volatile sig_atomic_t stop_requested = 0;
 
 // =================================================================
 // FONCTIONS UTILITAIRES
@@ -72,14 +77,33 @@ static UserCommand get_user_command() {
 }
 
 // =================================================================
+// HANDLERS
+// =================================================================
+
+// Handler permettant de terminer le jeu
+void stop_game(int sig) {
+    (void)sig;
+    printf("[INPUT] Signal d'arrêt reçu.\n");
+    // On lève le drapeau pour dire à la boucle principale de s'arrêter
+    stop_requested = 1;
+}
+
+// =================================================================
 // MAIN
 // =================================================================
 
 int main(void) {
-    // 1. Connexion au Pipe (Communication)
+    // 1. Mise en place des handlers
+    struct sigaction sa;
+    sa.sa_handler = stop_game;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIG_CLEAN_EXIT, &sa, NULL);
+
+    // 2. Connexion au Pipe (Communication)
     int pipe_fd = connect_to_game_engine();
 
-    // 2. Handshake (Présentation)
+    // 3. Handshake (Présentation)
     InputPacket packet;
     packet.cmd = CMD_HANDSHAKE;
     packet.sender_pid = getpid();
@@ -90,15 +114,18 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    // 3. Configuration du Terminal (Mode Raw)
+    // 4. Configuration du Terminal (Mode Raw)
     // Indispensable pour capter les touches sans "Entrée"
     printf("[INPUT] Contrôleur prêt. Utilisez les flèches. 'q' pour quitter.\n");
     struct termios orig_termios = set_raw_mode();
 
-    // 4. Boucle d'événements
-    int running = 1;
-    while (running) {
+    // 5. Boucle d'événements
+    while (true) {
         UserCommand cmd = get_user_command();
+
+        if (stop_requested) {
+            cmd = CMD_QUIT;
+        }
 
         if (cmd != CMD_NONE) {
             packet.cmd = cmd;
@@ -111,15 +138,15 @@ int main(void) {
             }
 
             if (cmd == CMD_QUIT) {
-                running = 0;
+                break;
             }
         }
     }
 
-    // 5. Nettoyage
+    // 6. Nettoyage
     restore_mode(orig_termios); // Restaurer le terminal
     close(pipe_fd);
-    printf("\n[INPUT] Déconnexion.\n");
+    printf("[INPUT] Déconnexion.\n");
 
     return EXIT_SUCCESS;
 }
