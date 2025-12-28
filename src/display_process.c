@@ -40,7 +40,7 @@ void draw_interface(const GameState *state) {
     printf(COLOR_GRID "┌──────┬──────┬──────┬──────┐\n" COLOR_RESET);
     
     for (int y = 0; y < GRID_SIZE; y++) {
-        printf(COLOR_GRID "|" COLOR_RESET); // Bord gauche
+        printf(COLOR_GRID "│" COLOR_RESET); // Bord gauche
         
         for (int x = 0; x < GRID_SIZE; x++) {
             int val = state->cells[y][x];
@@ -75,6 +75,9 @@ void draw_interface(const GameState *state) {
         }
         printf("Press Q in the Input Window to leave.\n");
     }
+
+    // Forcer l'affichage immédiat
+    fflush(stdout);
 }
 
 int main(int argc, char *argv[]) {
