@@ -1,3 +1,4 @@
+#define _XOPEN_SOURCE 700
 #include "../include/game_threads.h"
 #include "../include/game_logic.h"
 
@@ -5,7 +6,7 @@
 // GLOBALES ET SYNCHRONISATION
 // =================================================================
 
-GameState current_state; 
+GameState current_state;
 
 pthread_mutex_t state_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t  cond_move   = PTHREAD_COND_INITIALIZER;
@@ -17,6 +18,11 @@ InputSharedData input_data = {
     .has_new_cmd = false,
     .cmd = CMD_NONE
 };
+
+pthread_t main_thread_id;
+
+// Globale pour signaler l'arrêt demandé
+volatile sig_atomic_t stop_requested = 0;
 
 // =================================================================
 // FONCTIONS UTILITAIRES (Helpers)
@@ -124,19 +130,41 @@ static FILE* setup_input_pipe() {
 }
 
 // =================================================================
+// HANDLERS
+// =================================================================
+
+// Handler permettant de terminer le jeu
+void stop_game(int sig) {
+    (void)sig;
+    printf("[GAME] Signal d'arrêt reçu.\n");
+    // On lève le drapeau pour dire à la boucle principale de s'arrêter
+    stop_requested = 1;
+}
+
+// =================================================================
 // MAIN
 // =================================================================
 
 int main(int argc, char *argv[]) {
     (void)argc; // On ignore argc pour éviter le warning unused
 
+    // 1. Mise en place des handlers
+    struct sigaction sa;
+    sa.sa_handler = stop_game;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIG_CLEAN_EXIT, &sa, NULL);
+
+    // 2. On sauvegarde l'identité du thread main pour que Goal puisse le viser
+    main_thread_id = pthread_self();
+
     printf("[GAME] --- Initialisation du Moteur 2048 ---\n");
 
-    // 1. Lancement du sous-système d'affichage
+    // 3. Lancement du sous-système d'affichage
     int display_pipe_fd;
     pid_t pid_display = spawn_display_process(&display_pipe_fd, argv[0]);
 
-    // 2. Initialisation logique du jeu
+    // 4. Initialisation logique du jeu
     init_game(&current_state);
     
     // Envoi de l'état initial (évite l'écran noir au démarrage)
@@ -144,19 +172,19 @@ int main(int argc, char *argv[]) {
         perror("[GAME] Erreur envoi initial");
     }
 
-    // 3. Démarrage des Threads "Ouvriers"
+    // 5. Démarrage des Threads "Ouvriers"
     pthread_t t_move, t_goal;
     
-    // Note: On passe display_pipe_fd pour que le Goal puisse rafraichir l'écran
     if (pthread_create(&t_move, NULL, thread_move_routine, NULL) != 0) {
         perror("[GAME] Erreur create thread move"); exit(EXIT_FAILURE);
     }
     
+    // On passe display_pipe_fd pour que le Goal puisse rafraichir l'écran
     if (pthread_create(&t_goal, NULL, thread_goal_routine, &display_pipe_fd) != 0) {
         perror("[GAME] Erreur create thread goal"); exit(EXIT_FAILURE);
     }
 
-    // 4. Connexion au contrôleur (Bloquant jusqu'à lancement de ./bin/input)
+    // 6. Connexion au contrôleur (Bloquant jusqu'à lancement de ./bin/input)
     FILE *input_stream = setup_input_pipe();
 
     // =============================================================
@@ -174,9 +202,6 @@ int main(int argc, char *argv[]) {
         // Gestion de l'arrêt
         if (packet.cmd == CMD_QUIT) {
             printf("[GAME] Signal d'arrêt reçu.\n");
-            
-            // On tue l'affichage proprement avec SIGTERM
-            kill(pid_display, SIGTERM); 
             break;
         }
 
@@ -193,6 +218,10 @@ int main(int argc, char *argv[]) {
     // =============================================================
     // NETTOYAGE
     // =============================================================
+
+    // On tue l'affichage (avec SIG_CLEAN_EXIT car le processus d'affichage a un handler)
+    kill(pid_display, SIG_CLEAN_EXIT); 
+
     printf("[GAME] Arrêt du système.\n");
     
     fclose(input_stream);
