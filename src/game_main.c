@@ -226,12 +226,15 @@ int main(int argc, char *argv[]) {
     // On tue Processus Affichage (avec SIG_CLEAN_EXIT car le processus Affichage a un handler)
     kill(pid_display, SIG_CLEAN_EXIT); 
 
-    printf("[GAME] Arrêt du système.\n");
+    // On attend la mort du Processus Affichage
+    waitpid(pid_display, NULL, 0);
 
-    // On tue le Processus Input (avec SIG_CLEAN_EXIT car le processus Input a un handler)
+    // On tue le Processus Input (avec SIG_END_INPUT car le processus Input a un handler)
     if (input_process_pid) {
-        kill(input_process_pid, SIG_CLEAN_EXIT);
+        kill(input_process_pid, SIG_END_INPUT);
     }
+
+    printf("[GAME] Arrêt du système.\n");
     
     fclose(input_stream);
     close(display_pipe_fd); // Cela provoquera EOF côté Display

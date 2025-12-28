@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <errno.h>
+#include <wait.h>
 #include "common.h"
 
 // --- VARIABLES PARTAGÉES (Déclarations "extern") ---
