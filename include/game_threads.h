@@ -26,7 +26,9 @@ typedef struct InputSharedData {
     pthread_cond_t cond;
 } InputSharedData;
 
-extern InputSharedData input_data;   // Données venant du clavier
+extern InputSharedData input_data;  // Données venant du clavier
+
+extern pthread_t main_thread_id;    // PID du thread main
 
 // --- PROTOTYPES DES FONCTIONS DE THREADS ---
 void *thread_move_routine(void *arg);
