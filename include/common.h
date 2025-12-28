@@ -31,8 +31,7 @@ typedef struct InputPacket {
 } InputPacket;
 
 // Etat du jeu envoyé par le processus 2048 vers le processus Affichage (via Pipe Anonyme)
-// __attribute__((packed)) assure que la struct a la même taille binaire partout
-typedef struct __attribute__((packed)) GameState {
+typedef struct GameState {
     int cells[GRID_SIZE][GRID_SIZE];    // La grille de valeurs
     int score;                          // Score
     bool game_over;                     // True si la partie est finie, False si la partie est en cours
