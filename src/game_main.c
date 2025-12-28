@@ -135,6 +135,7 @@ static FILE* setup_input_pipe() {
 
 // Handler permettant de terminer le jeu
 void stop_game(int sig) {
+    sleep(1); // Pour laisser le temps à l'affichage
     (void)sig;
     printf("[GAME] Signal d'arrêt reçu.\n");
     // On lève le drapeau pour dire à la boucle principale de s'arrêter
@@ -192,10 +193,13 @@ int main(int argc, char *argv[]) {
     // =============================================================
     InputPacket packet;
 
-    while (fread(&packet, sizeof(InputPacket), 1, input_stream) > 0) {
+    pid_t input_process_pid;
+
+    while (!stop_requested && fread(&packet, sizeof(InputPacket), 1, input_stream) > 0) {
         
         // Gestion du Handshake
         if (packet.cmd == CMD_HANDSHAKE) {
+            input_process_pid = packet.sender_pid;
             continue; 
         }
 
@@ -219,10 +223,15 @@ int main(int argc, char *argv[]) {
     // NETTOYAGE
     // =============================================================
 
-    // On tue l'affichage (avec SIG_CLEAN_EXIT car le processus d'affichage a un handler)
+    // On tue Processus Affichage (avec SIG_CLEAN_EXIT car le processus Affichage a un handler)
     kill(pid_display, SIG_CLEAN_EXIT); 
 
     printf("[GAME] Arrêt du système.\n");
+
+    // On tue le Processus Input (avec SIG_CLEAN_EXIT car le processus Input a un handler)
+    if (input_process_pid) {
+        kill(input_process_pid, SIG_CLEAN_EXIT);
+    }
     
     fclose(input_stream);
     close(display_pipe_fd); // Cela provoquera EOF côté Display

@@ -5,8 +5,7 @@
 # --- Variables de compilation ---
 CC       = gcc
 CFLAGS   = -Wall -Wextra -g -Iinclude
-# [CORRECTION] Ajout de -lncurses pour l'interface et -lm pour les maths si besoin
-LDFLAGS  = -pthread -lncurses -lm
+LDFLAGS  = -pthread
 
 # --- Dossiers ---
 SRC_DIR  = src
