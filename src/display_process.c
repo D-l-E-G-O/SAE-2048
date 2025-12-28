@@ -33,7 +33,7 @@ void draw_interface(const GameState *state) {
     clear_screen(); // Fonction définie dans utils.c
 
     // En-tête
-    printf(COLOR_BOLD "=== PROJET 2048 ===" COLOR_RESET "\n");
+    printf(COLOR_BOLD "=== 2048 ===" COLOR_RESET "\n");
     printf("Score: " COLOR_SCORE "%d" COLOR_RESET "\n\n", state->score);
 
     // Dessin de la grille ligne par ligne
@@ -48,11 +48,29 @@ void draw_interface(const GameState *state) {
             if (val == 0) {
                 // Case vide : on affiche un point ou rien
                 printf("      ");
-            } else {
+            } 
+            else {
                 // Case remplie : on centre le nombre et on met la couleur
                 const char* c = get_color(val);
-                // %4d assure que le nombre prend 4 espaces. 
-                printf("%s %4d " COLOR_RESET, c, val);
+                
+                // La case fait 6 caractères de large.
+                // On ajuste les espaces selon la taille du nombre.
+                if (val < 10) { 
+                    // 1 chiffre : 2 espaces avant, 3 après
+                    printf("%s  %d   " COLOR_RESET, c, val);
+                } 
+                else if (val < 100) { 
+                    // 2 chiffres : 2 espaces avant, 2 après
+                    printf("%s  %d  " COLOR_RESET, c, val);
+                } 
+                else if (val < 1000) { 
+                    // 3 chiffres : 1 espace avant, 2 après
+                    printf("%s %d  " COLOR_RESET, c, val);
+                } 
+                else { 
+                    // 4 chiffres ou plus : 1 espace avant, 1 après
+                    printf("%s %d " COLOR_RESET, c, val);
+                }
             }
             printf(COLOR_GRID "│" COLOR_RESET); // Séparateur vertical
         }
