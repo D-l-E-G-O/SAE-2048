@@ -1,109 +1,125 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <termios.h>
+#include <unistd.h>     // read, write, close, sleep
+#include <fcntl.h>      // open, O_WRONLY
+#include <sys/stat.h>   // mkfifo
 #include <errno.h>
+#include <termios.h>
+
 #include "../include/utils.h"
 #include "../include/common.h"
-#include  "../include/input_process.h"
 
+// =================================================================
+// FONCTIONS UTILITAIRES
+// =================================================================
 
 /**
- * Initialise le tube nommé (création et ouverture).
+ * Tente d'ouvrir le Pipe Nommé pour communiquer avec le moteur.
+ * Bloque jusqu'à ce que le moteur ouvre le pipe en lecture.
+ * @return Le descripteur de fichier du pipe.
  */
-int init_fifo(const char *fifo_name) {
-    // Tentative de création du tube avec les permissions 0666 (rw-rw-rw-)
-    if (mkfifo(fifo_name, 0666) == -1) {
-        // Si l'erreur est "Le fichier existe déjà", ce n'est pas grave, on continue.
+static int connect_to_game_engine() {
+    printf("[INPUT] Tentative de connexion au moteur sur '%s'...\n", NAMED_PIPE_PATH);
+
+    // On essaie de créer le pipe au cas où (sécurité)
+    if (mkfifo(NAMED_PIPE_PATH, 0666) == -1) {
         if (errno != EEXIST) {
-            perror("error while creating the fifo");
-            exit(EXIT_FAILURE); // On quitte si c'est une vraie erreur critique
+            perror("[INPUT] Warning mkfifo");
+            // On continue quand même, le pipe existe peut-être déjà
         }
     }
 
-    // Ouverture du tube en écriture seule (Write Only).
-    // Cette ligne est bloquante tant qu'un autre processus n'ouvre pas le tube en lecture.
-    return open(fifo_name, O_WRONLY);
+    // Ouverture bloquante (attente du serveur)
+    int fd = open(NAMED_PIPE_PATH, O_WRONLY);
+    if (fd == -1) {
+        perror("[INPUT] Erreur fatale ouverture pipe");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("[INPUT] Connecté au moteur de jeu !\n");
+    return fd;
 }
 
 /**
- * Lit l'entrée clavier et retourne la commande correspondante.
- * Gère les séquences d'échappement pour les flèches.
+ * Lit une touche brute depuis le terminal.
+ * Gère les séquences d'échappement ANSI pour les flèches.
+ * @return UserCommand récupérée et interprétée.
  */
-UserCommand read_input_command() {
-    // Lecture d'un caractère sur l'entrée standard
-    int c = getchar(); // 1er appel : On récupère le code 27 (ESC)
+static UserCommand get_user_command() {
+    char c;
+    // Lecture d'un seul octet
+    if (read(STDIN_FILENO, &c, 1) <= 0) return CMD_NONE;
 
-    // Détection des séquences d'échappement (Flèches directionnelles)
-    // Les flèches envoient 3 octets : ESC (27) + '[' (91) + Lettre (A, B, C ou D)
-    if (c == 27) {
-        // On sait que c'est une séquence spéciale.
-        // Le caractère suivant dans la file d'attente est forcément '['
-        
-        getchar(); // 2ème appel : On se debarrasse du '['
-        switch(getchar()) { // 3ème appel : On récupère la lettre finale (A, B, C ou D)
-            case 'A': return CMD_UP;    // Flèche Haut
-            case 'B': return CMD_DOWN;  // Flèche Bas
-            case 'C': return CMD_RIGHT; // Flèche Droite
-            case 'D': return CMD_LEFT;  // Flèche Gauche
+    if (c == 'q') return CMD_QUIT;
+
+    // Détection Séquence Échappement (Flèches : ESC + [ + Lettre)
+    if (c == 27) { 
+        char seq[2];
+        // On tente de lire les 2 caractères suivants
+        if (read(STDIN_FILENO, &seq, 2) == 2) {
+            if (seq[0] == '[') {
+                switch (seq[1]) {
+                    case 'A': return CMD_UP;
+                    case 'B': return CMD_DOWN;
+                    case 'C': return CMD_RIGHT;
+                    case 'D': return CMD_LEFT;
+                }
+            }
         }
-    } else if (c == 'q') {
-        // Si l'utilisateur appuie sur 'q', on prépare la commande de sortie
-        return CMD_QUIT;
     }
 
     return CMD_NONE;
 }
 
-int main(void)
-{
-    // Définition du nom du tube nommé (FIFO)
-    char *my_fifo = "fifo";
+// =================================================================
+// MAIN
+// =================================================================
 
-    // Initialisation du FIFO (Création + Ouverture)
-    int fd = init_fifo(my_fifo);
+int main(void) {
+    // 1. Connexion au Pipe (Communication)
+    int pipe_fd = connect_to_game_engine();
 
-    // Préparation du paquet d'initialisation (Handshake)
-    // Cela permet au serveur de savoir quel processus (PID) vient de se connecter.
-    InputPacket pkt;
-    pkt.cmd = CMD_HANDSHAKE;
-    pkt.sender_pid = getpid(); // Récupère l'ID du processus actuel
+    // 2. Handshake (Présentation)
+    InputPacket packet;
+    packet.cmd = CMD_HANDSHAKE;
+    packet.sender_pid = getpid();
+    
+    if (write(pipe_fd, &packet, sizeof(InputPacket)) == -1) {
+        perror("[INPUT] Erreur handshake");
+        close(pipe_fd);
+        return EXIT_FAILURE;
+    }
 
-    // Envoi du paquet de handshake dans le tube
-    write(fd, &pkt, sizeof(InputPacket));
-
-    // Passage du terminal en mode "raw" (brut).
-    // Cela permet de lire les touches (comme les flèches) sans attendre que l'utilisateur appuie sur "Entrée".
-    // On sauvegarde la configuration d'origine pour la restaurer à la fin.
+    // 3. Configuration du Terminal (Mode Raw)
+    // Indispensable pour capter les touches sans "Entrée"
+    printf("[INPUT] Contrôleur prêt. Utilisez les flèches. 'q' pour quitter.\n");
     struct termios orig_termios = set_raw_mode();
 
+    // 4. Boucle d'événements
     int running = 1;
     while (running) {
-        // Récupération de la commande via notre fonction dédiée
-        int command = read_input_command();
+        UserCommand cmd = get_user_command();
 
-        // Réinitialisation des champs du paquet pour éviter d'envoyer d'anciennes données
-        pkt.sender_pid = 0;
-        pkt.cmd = command;
+        if (cmd != CMD_NONE) {
+            packet.cmd = cmd;
+            packet.sender_pid = 0; // Plus besoin d'envoyer le PID
 
-        if (command == CMD_QUIT) {
-            running = 0; // On brisera la boucle while après l'envoi
-        }
+            // Envoi au moteur
+            if (write(pipe_fd, &packet, sizeof(InputPacket)) == -1) {
+                // Si write échoue (ex: Broken Pipe), le jeu a crashé ou fermé
+                break; 
+            }
 
-        // Si une commande valide a été détectée (Flèche ou Quit), on l'envoie dans le tube
-        if (pkt.cmd != CMD_NONE) {
-            write(fd, &pkt, sizeof(InputPacket));
+            if (cmd == CMD_QUIT) {
+                running = 0;
+            }
         }
     }
 
-    // Fermeture du descripteur de fichier du tube
-    close(fd);
+    // 5. Nettoyage
+    restore_mode(orig_termios); // Restaurer le terminal
+    close(pipe_fd);
+    printf("\n[INPUT] Déconnexion.\n");
 
-    // Restauration du terminal dans son état d'origine (mode canonique).
-    // C'est crucial, sinon le terminal restera inutilisable (pas d'écho des touches, pas de retour à la ligne automatique) après la fin du programme.
-    restore_mode(orig_termios);
-    
-    return 0;
+    return EXIT_SUCCESS;
 }
