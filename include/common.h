@@ -8,7 +8,8 @@
 #define TARGET_VAL 2048
 
 // --- SIGNAUX DU JEU ---
-#define SIG_CLEAN_EXIT SIGINT  // Signal pour demander un arrêt propre
+#define SIG_CLEAN_EXIT  SIGINT      // Signal pour demander un arrêt propre
+#define SIG_END_INPUT   SIGUSR1     // Signal pour demander l'arrêt du Processus Input
 
 // --- CONFIGURATION IPC ---
 // Chemin du pipe nommé créé par le processus Input

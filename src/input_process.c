@@ -82,10 +82,14 @@ static UserCommand get_user_command() {
 
 // Handler permettant de terminer le jeu
 void stop_game(int sig) {
-    (void)sig;
     printf("[INPUT] Signal d'arrêt reçu.\n");
-    // On lève le drapeau pour dire à la boucle principale de s'arrêter
-    stop_requested = 1;
+    // On lève le drapeau pour dire à la boucle principale de s'arrêter 
+    if (sig == SIG_CLEAN_EXIT) { // CTRL+C ou terminaison en cours de partie
+        stop_requested = 1;
+    }
+    else if (sig == SIG_END_INPUT) { // Fin du jeu
+        stop_requested = 2;
+    }
 }
 
 // =================================================================
@@ -99,6 +103,7 @@ int main(void) {
     sa.sa_flags = 0;
     sigemptyset(&sa.sa_mask);
     sigaction(SIG_CLEAN_EXIT, &sa, NULL);
+    sigaction(SIG_END_INPUT, &sa, NULL);
 
     // 2. Connexion au Pipe (Communication)
     int pipe_fd = connect_to_game_engine();
@@ -131,10 +136,12 @@ int main(void) {
             packet.cmd = cmd;
             packet.sender_pid = 0; // Plus besoin d'envoyer le PID
 
-            // Envoi au moteur
-            if (write(pipe_fd, &packet, sizeof(InputPacket)) == -1) {
-                // Si write échoue (ex: Broken Pipe), le jeu a crashé ou fermé
-                break; 
+            // Envoi au moteur (Si le mode de fermeture n'est pas à 1 -> Jeu déjà fini)
+            if (stop_requested != 2) {
+                if (write(pipe_fd, &packet, sizeof(InputPacket)) == -1) {
+                    // Si write échoue (ex: Broken Pipe), le jeu a crashé ou fermé
+                    break;
+                } 
             }
 
             if (cmd == CMD_QUIT) {
@@ -144,8 +151,8 @@ int main(void) {
     }
 
     // 6. Nettoyage
-    restore_mode(orig_termios); // Restaurer le terminal
     close(pipe_fd);
+    restore_mode(orig_termios); // Restaurer le terminal
     printf("[INPUT] Déconnexion.\n");
 
     return EXIT_SUCCESS;
