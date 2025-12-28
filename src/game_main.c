@@ -135,8 +135,9 @@ static FILE* setup_input_pipe() {
 
 // Handler permettant de terminer le jeu
 void stop_game(int sig) {
-    sleep(1); // Pour laisser le temps à l'affichage
-    (void)sig;
+    if (sig == SIG_END_GAME) { // Fin du jeu standard (pas spontanée)
+        sleep(1); // Pour laisser le temps à l'affichage
+    }
     printf("[GAME] Signal d'arrêt reçu.\n");
     // On lève le drapeau pour dire à la boucle principale de s'arrêter
     stop_requested = 1;
@@ -155,6 +156,7 @@ int main(int argc, char *argv[]) {
     sa.sa_flags = 0;
     sigemptyset(&sa.sa_mask);
     sigaction(SIG_CLEAN_EXIT, &sa, NULL);
+    sigaction(SIG_END_GAME, &sa, NULL);
 
     // 2. On sauvegarde l'identité du thread main pour que Goal puisse le viser
     main_thread_id = pthread_self();
@@ -229,9 +231,9 @@ int main(int argc, char *argv[]) {
     // On attend la mort du Processus Affichage
     waitpid(pid_display, NULL, 0);
 
-    // On tue le Processus Input (avec SIG_END_INPUT car le processus Input a un handler)
+    // On tue le Processus Input (avec SIG_END_GAME car le processus Input a un handler)
     if (input_process_pid) {
-        kill(input_process_pid, SIG_END_INPUT);
+        kill(input_process_pid, SIG_END_GAME);
     }
 
     printf("[GAME] Arrêt du système.\n");

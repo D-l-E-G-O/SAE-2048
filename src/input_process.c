@@ -87,7 +87,7 @@ void stop_game(int sig) {
     if (sig == SIG_CLEAN_EXIT) { // CTRL+C ou terminaison en cours de partie
         stop_requested = 1;
     }
-    else if (sig == SIG_END_INPUT) { // Fin du jeu
+    else if (sig == SIG_END_GAME) { // Fin du jeu
         stop_requested = 2;
     }
 }
@@ -103,7 +103,7 @@ int main(void) {
     sa.sa_flags = 0;
     sigemptyset(&sa.sa_mask);
     sigaction(SIG_CLEAN_EXIT, &sa, NULL);
-    sigaction(SIG_END_INPUT, &sa, NULL);
+    sigaction(SIG_END_GAME, &sa, NULL);
 
     // 2. Connexion au Pipe (Communication)
     int pipe_fd = connect_to_game_engine();

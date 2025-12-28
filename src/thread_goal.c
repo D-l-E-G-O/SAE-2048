@@ -73,7 +73,7 @@ void *thread_goal_routine(void *arg) {
         pthread_mutex_unlock(&state_mutex);
 
         if (current_state.game_over) {
-            pthread_kill(main_thread_id, SIG_CLEAN_EXIT);
+            pthread_kill(main_thread_id, SIG_END_GAME);
             break;
         }
     }
