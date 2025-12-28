@@ -1,6 +1,12 @@
 #pragma once
 
 #include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <signal.h>
 #include "common.h"
 
 // --- VARIABLES PARTAGÉES (Déclarations "extern") ---
@@ -24,3 +30,7 @@ extern InputSharedData input_data;   // Données venant du clavier
 // --- PROTOTYPES DES FONCTIONS DE THREADS ---
 void *thread_move_routine(void *arg);
 void *thread_goal_routine(void *arg);
+void *thread_main_routine(void *arg);
+
+void process_2048(pid_t pid_process_display);
+void process_display();
