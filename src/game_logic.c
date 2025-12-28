@@ -6,10 +6,10 @@
 
 // --- FONCTIONS PRIVÉES (Helpers) ---
 
-// Retourne un entier aléatoire : soit 2 (90%), soit 4 (10%)
+// Retourne un entier aléatoire : soit 2 (50%), soit 4 (50%)
 // Règle d'apparition standard du 2048
 static int get_random_tile_value() {
-    return (rand() % 10 == 0) ? 4 : 2;
+    return (rand() % 2 == 0) ? 4 : 2;
 }
 
 // --- IMPLÉMENTATION DE L'INTERFACE ---

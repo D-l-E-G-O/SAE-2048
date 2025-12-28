@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string.h>
 #include "common.h"
 
 // Initialise la grille : tout à 0, puis spawn 2 tuiles aléatoires.

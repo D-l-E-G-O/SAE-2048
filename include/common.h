@@ -11,10 +11,6 @@
 // Chemin du pipe nommé créé par le processus Input
 #define NAMED_PIPE_PATH "/tmp/fifo_2048_input"
 
-// Signaux utilisés pour la synchronisation
-#define SIG_UPDATE_DISPLAY SIGUSR1  // Signal envoyé par 2048 vers Affichage pour rafraîchir
-#define SIG_CLEAN_EXIT     SIGUSR2  // Signal pour demander un arrêt propre
-
 // --- STRUCTURES D'ECHANGE ---
 
 // Commandes envoyées par le Processus INPUT vers 2048 (via Pipe Nommé)

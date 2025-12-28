@@ -69,7 +69,7 @@ void draw_interface(const GameState *state) {
     if (state->game_over) {
         printf("\n");
         if (state->victory) {
-            printf(COLOR_WIN COLOR_BOLD "VICTOIRY ! You reached 2048 !\n" COLOR_RESET);
+            printf(COLOR_WIN COLOR_BOLD "VICTOIRY ! You reached %d !\n" COLOR_RESET, TARGET_VAL);
         } else {
             printf(COLOR_LOSE COLOR_BOLD "GAME OVER... No more moves.\n" COLOR_RESET);
         }

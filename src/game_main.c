@@ -23,11 +23,39 @@ InputSharedData input_data = {
 // =================================================================
 
 /**
+ * Fonction pour trouver le chemin de l'exécutable 'display'
+ * en se basant sur le chemin de l'exécutable actuel (argv[0])
+ * @param buffer Le buffer du chemin.
+ * @param size La taille du buffer.
+ * @param argv0 Le chemin de l'exécutable actuel.
+ */
+static void get_display_path(char *buffer, size_t size, const char *argv0) {
+    // 1. On copie le chemin complet de argv[0] (ex: "./bin/game_2048")
+    strncpy(buffer, argv0, size - 1);
+    buffer[size - 1] = '\0'; // Sécurité
+
+    // 2. On cherche le dernier slash '/'
+    char *last_slash = strrchr(buffer, '/');
+    
+    if (last_slash != NULL) {
+        // On coupe juste après le slash (ex: "./bin/")
+        *(last_slash + 1) = '\0'; 
+    } else {
+        // Pas de slash ? On est dans le dossier courant (ex: "")
+        buffer[0] = '\0'; 
+    }
+
+    // 4. On ajoute "display" (ex: "./bin/display")
+    strncat(buffer, "display", size - strlen(buffer) - 1);
+}
+
+/**
  * Lance le processus d'affichage via fork/exec.
  * @param write_fd_ptr Pointeur pour récupérer le File Descriptor d'écriture vers l'affichage.
+ * @param argv0 Le chemin de l'exécutable actuel.
  * @return PID du processus fils (affichage).
  */
-static pid_t spawn_display_process(int *write_fd_ptr) {
+static pid_t spawn_display_process(int *write_fd_ptr, const char *argv0) {
     int pipe_fd[2];
 
     // 1. Création du Pipe Anonyme
@@ -51,10 +79,15 @@ static pid_t spawn_display_process(int *write_fd_ptr) {
         char fd_str[16];
         snprintf(fd_str, sizeof(fd_str), "%d", pipe_fd[0]);
 
+        // Calcul du chemin
+        char path_to_display[256];
+        get_display_path(path_to_display, sizeof(path_to_display), argv0);
+
         // Remplacement de l'image du processus
-        execl("./bin/display", "display", fd_str, NULL);
+        execl(path_to_display, "display", fd_str, NULL);
         
         // Si on arrive ici, execl a échoué
+        fprintf(stderr, "[GAME] Erreur: Impossible de lancer %s\n", path_to_display);
         perror("[GAME] Erreur fatal: execl display");
         exit(EXIT_FAILURE);
     }
@@ -94,12 +127,14 @@ static FILE* setup_input_pipe() {
 // MAIN
 // =================================================================
 
-int main(void) {
+int main(int argc, char *argv[]) {
+    (void)argc; // On ignore argc pour éviter le warning unused
+
     printf("[GAME] --- Initialisation du Moteur 2048 ---\n");
 
     // 1. Lancement du sous-système d'affichage
     int display_pipe_fd;
-    pid_t pid_display = spawn_display_process(&display_pipe_fd);
+    pid_t pid_display = spawn_display_process(&display_pipe_fd, argv[0]);
 
     // 2. Initialisation logique du jeu
     init_game(&current_state);
