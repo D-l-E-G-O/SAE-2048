@@ -35,3 +35,5 @@ void *thread_main_routine(void *arg);
 
 void process_2048(pid_t pid_process_display);
 void process_display();
+int check_victory(int cells[GRID_SIZE][GRID_SIZE]);
+int check_defeat(int cells[GRID_SIZE][GRID_SIZE]);
