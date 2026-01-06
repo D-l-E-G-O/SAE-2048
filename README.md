@@ -1,4 +1,4 @@
-# SAE 2048 ![Static Badge](https://img.shields.io/badge/Statut-En%20Cours-green)
+# SAE 2048 ![Static Badge](https://img.shields.io/badge/Statut-Termin%C3%A9-red)
 
 **SAE 2048** est un projet de 2e année de **BUT Informatique à l’IUT d’Illkirch** développé en C dont le but est de reproduire le célèbre jeu **2048**.
 Il met en oeuvre une **séparation stricte des responsabilités** via plusieurs **processus** (Entrée, Jeu, Affichage) et **threads**, communiquant entre eux par des **pipes** (nommés et anonymes) et des **signaux**.
@@ -14,7 +14,7 @@ Il met en oeuvre une **séparation stricte des responsabilités** via plusieurs 
 ## Technologies utilisées
 
 * **Langage :** C (Standards POSIX)
-* **Concepts :** Processus, Threads (pthreads), Pipes, Signaux
+* **Concepts :** Processus, Threads (pthreads), Pipes, Signaux, Mutex, CondVars, SigAtomic
 * **IDE :** Visual Studio Code
 
 ## Équipe
@@ -39,16 +39,13 @@ make
 
 3. **Préparation de l'environnement :**
 Le jeu utilise un *pipe nommé* pour la communication. Le script ou le programme se charge généralement de le créer, mais assurez-vous que le dossier `/tmp` est accessible.
+
+
 4. **Lancer le jeu :**
-Il est nécessaire de lancer le moteur de jeu dans un terminal, et le contrôleur (input) dans un autre (ou via un script global).
+Le lancement est automatisé via un exécutable launcher qui se charge de démarrer le moteur et le contrôleur.
 ```bash
-# Terminal 1 (Moteur de jeu et Affichage)
-./bin/game_2048
-
-# Terminal 2 (Contrôleur clavier)
-./bin/input
+./bin/launcher
 ```
-
 
 
 > [!IMPORTANT]
@@ -58,14 +55,21 @@ Il est nécessaire de lancer le moteur de jeu dans un terminal, et le contrôleu
 
 - **Architecture Multi-processus :** Séparation distincte entre la gestion des entrées (Main), la logique du jeu (2048) et le rendu visuel (Affichage).
  
-- **Gestion Multi-threads :** Le coeur du jeu utilise 3 threads dédiés pour gérer les entrées, le calcul des mouvements (Move & Score) et la vérification des conditions de victoire (Goal).
+- **Gestion Multi-threads :** Le coeur du jeu utilise 3 threads dédiés pour :
+    - L'orchestration et la réception des commandes (Main)
 
-- **Communication IPC Avancée :**
+    - Le calcul des mouvements (Move)
+
+    - La vérification des conditions de victoire et l'envoi des données à l'affichage (Goal)
+
+- **Communication et Synchronisation :**
  
-- **Pipe Nommé** pour la transmission des commandes joueur vers le moteur.
+    - **Pipe Nommé (FIFO) :** Canal de transmission unidirectionnel pour envoyer les commandes du joueur (Input) vers le moteur de jeu.
  
-- **Pipe Anonyme** pour l'envoi de la grille vers le processus d'affichage.
- 
-- **Synchronisation par Signaux :** Coordination temps réel entre les processus et les threads pour un affichage fluide.
+    - **Pipe Anonyme :** Flux de données continu permettant au moteur d'envoyer l'état de la grille au processus d'affichage en temps réel.
+
+    - **Signaux (SIGINT, SIGUSR1) :** Coordination événementielle entre les processus (pour l'arrêt propre) et interruption des appels bloquants.
+
+    - **Mutex et Variables Conditionnelles :** Mécanismes de synchronisation inter-threads assurant l'exclusion mutuelle sur les données partagées (état du jeu) et l'orchestration séquentielle des tâches (Input -> Move -> Goal).
 
 - **Algorithme de jeu complet :** Gestion des fusions, apparition aléatoire de tuiles (2 ou 4) et détection de Game Over/Victoire.
