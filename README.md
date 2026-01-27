@@ -73,3 +73,7 @@ Le lancement est automatisé via un exécutable launcher qui se charge de démar
     - **Mutex et Variables Conditionnelles :** Mécanismes de synchronisation inter-threads assurant l'exclusion mutuelle sur les données partagées (état du jeu) et l'orchestration séquentielle des tâches (Input -> Move -> Goal).
 
 - **Algorithme de jeu complet :** Gestion des fusions, apparition aléatoire de tuiles (2 ou 4) et détection de Game Over/Victoire.
+
+## Licence
+
+Ce projet est distribué sous la licence MIT. Voir le fichier `LICENSE` pour plus d'informations.
