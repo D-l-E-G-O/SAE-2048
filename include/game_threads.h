@@ -14,8 +14,6 @@
 // --- VARIABLES PARTAGÉES (Déclarations "extern") ---
 // Le mot-clé "extern" dit : "C'est défini dans un autre .c, mais je l'utilise ici"
 
-extern GameState current_state; // L'état du jeu
-
 // Flag pour l'attente active dans le thread Goal
 extern volatile bool grid_has_changed;
 
@@ -31,6 +29,16 @@ extern InputSharedData input_data; // Données venant du clavier
 extern pthread_t main_thread_id; // PID du thread main
 
 extern volatile sig_atomic_t stop_requested;
+
+typedef struct ClientSession
+{
+    pid_t input_pid;   // PID du joueur
+    pid_t display_pid; // PID du processus d'affichage dédié
+    int display_fd;    // Descripteur de fichier du pipe du joueur
+    GameState state;   // Etat de jeu du joueur
+} ClientSession;
+
+extern ClientSession *active_session; // La session en cours de traitement
 
 // --- PROTOTYPES DES FONCTIONS DE THREADS ---
 void *thread_move_routine(void *arg);
