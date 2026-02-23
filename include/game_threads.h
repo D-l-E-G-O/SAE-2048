@@ -14,22 +14,23 @@
 // --- VARIABLES PARTAGÉES (Déclarations "extern") ---
 // Le mot-clé "extern" dit : "C'est défini dans un autre .c, mais je l'utilise ici"
 
-extern GameState current_state;      // L'état du jeu
-extern pthread_mutex_t state_mutex;  // Le mutex pour protéger la grille
-extern pthread_cond_t cond_move;     // Condition pour réveiller le move
-extern pthread_cond_t cond_goal;     // Condition pour réveiller le goal
+extern GameState current_state; // L'état du jeu
+
+// Flag pour l'attente active dans le thread Goal
+extern volatile bool grid_has_changed;
 
 // Structure pour la communication Thread Main -> Thread Move
-typedef struct InputSharedData {
+typedef struct InputSharedData
+{
     UserCommand cmd;
-    bool has_new_cmd;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
+    volatile bool has_new_cmd;
 } InputSharedData;
 
-extern InputSharedData input_data;  // Données venant du clavier
+extern InputSharedData input_data; // Données venant du clavier
 
-extern pthread_t main_thread_id;    // PID du thread main
+extern pthread_t main_thread_id; // PID du thread main
+
+extern volatile sig_atomic_t stop_requested;
 
 // --- PROTOTYPES DES FONCTIONS DE THREADS ---
 void *thread_move_routine(void *arg);
