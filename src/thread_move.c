@@ -3,6 +3,13 @@
 #include "../include/game_threads.h"
 #include "../include/game_logic.h"
 
+volatile sig_atomic_t active_move = 0;
+
+void start_move(int sig)
+{
+    active_move=1;
+}
+
 /**
  * Routine du Thread "Move & Score"
  * Rôle :
@@ -16,12 +23,19 @@ void *thread_move_routine(void *arg)
 {
     (void)arg; // Pour éviter le warning "unused parameter"
 
+    struct sigaction sa;
+    sa.sa_handler = start_move;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGUSR2, &sa, NULL);
+
+
     while (!stop_requested)
     {
-        while (!input_data.has_new_cmd && !stop_requested)
-        {
-            usleep(1000);
-        }
+        printf("UIIIIIIIIIIIIIIII\n");
+        pause();
+        printf("RAHHHHHHHHHHHHHH\n");
+        GameState state = active_session->state;
 
         if (stop_requested)
             break;
@@ -34,12 +48,12 @@ void *thread_move_routine(void *arg)
 
         if (cmd >= CMD_UP && cmd <= CMD_RIGHT)
         {
-            bool const moved = move_grid(&active_session->current_state, cmd);
+            bool const moved = move_grid(&active_session->state, cmd);
 
             if (moved)
             {
-                spawn_tile(&active_session->current_state);
-                printf("[Move Thread] Move applied (%d). Score: %d\n", cmd, current_state.score);
+                spawn_tile(&active_session->state);
+                printf("[Move Thread] Move applied (%d). Score: %d\n", cmd, state.score);
 
                 // Déclencher le thread Goal
                 grid_has_changed = true;
@@ -49,6 +63,7 @@ void *thread_move_routine(void *arg)
                 printf("[Move Thread] Invalid move!\n");
             }
         }
+        active_move=0;
     }
 
     printf("[Move Thread] Thread terminated.\n");

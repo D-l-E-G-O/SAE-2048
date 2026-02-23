@@ -1,12 +1,11 @@
 #define _XOPEN_SOURCE 700
 #include "../include/game_threads.h"
 #include "../include/game_logic.h"
+#include "../include/array_list.h"
 
 // =================================================================
 // GLOBALES
 // =================================================================
-
-GameState current_state;
 
 volatile bool grid_has_changed = false;
 
@@ -18,6 +17,8 @@ pthread_t main_thread_id;
 
 // Globale pour signaler l'arrêt demandé
 volatile sig_atomic_t stop_requested = 0;
+
+ClientSession *active_session = NULL;
 
 // =================================================================
 // FONCTIONS UTILITAIRES (Helpers)
@@ -158,6 +159,9 @@ void stop_game(int sig)
 
 int main(int argc, char *argv[])
 {
+    array_list players;
+    array_list_init(&players, sizeof(ClientSession));
+
     (void)argc; // On ignore argc pour éviter le warning unused
 
     // 1. Mise en place des handlers
@@ -173,20 +177,7 @@ int main(int argc, char *argv[])
 
     printf("[GAME] --- Initialisation du Moteur 2048 ---\n");
 
-    // 3. Lancement du sous-système d'affichage
-    int display_pipe_fd;
-    pid_t const pid_display = spawn_display_process(&display_pipe_fd, argv[0]);
-
-    // 4. Initialisation logique du jeu
-    init_game(&current_state);
-
-    // Envoi de l'état initial (évite l'écran noir au démarrage)
-    if (write(display_pipe_fd, &current_state, sizeof(GameState)) == -1)
-    {
-        perror("[GAME] Erreur envoi initial");
-    }
-
-    // 5. Démarrage des Threads "Ouvriers"
+    // 3. Démarrage des Threads "Ouvriers"
     pthread_t t_move, t_goal;
 
     if (pthread_create(&t_move, NULL, thread_move_routine, NULL) != 0)
@@ -194,15 +185,13 @@ int main(int argc, char *argv[])
         perror("[GAME] Erreur create thread move");
         exit(EXIT_FAILURE);
     }
-
-    // On passe display_pipe_fd pour que le Goal puisse rafraichir l'écran
-    if (pthread_create(&t_goal, NULL, thread_goal_routine, &display_pipe_fd) != 0)
+    if (pthread_create(&t_goal, NULL, thread_goal_routine, NULL) != 0)
     {
         perror("[GAME] Erreur create thread goal");
         exit(EXIT_FAILURE);
     }
 
-    // 6. Connexion au contrôleur (Bloquant jusqu'à lancement de ./bin/input)
+    // 4. Connexion au contrôleur (Bloquant jusqu'à lancement de ./bin/input)
     FILE *input_stream = setup_input_pipe();
 
     // =============================================================
@@ -210,52 +199,77 @@ int main(int argc, char *argv[])
     // =============================================================
     InputPacket packet;
 
-    pid_t input_process_pid = 0;
-
     while (!stop_requested && fread(&packet, sizeof(InputPacket), 1, input_stream) > 0)
     {
 
         // Gestion du Handshake
         if (packet.cmd == CMD_HANDSHAKE)
         {
-            input_process_pid = packet.sender_pid;
+            ClientSession client_session;
+            client_session.input_pid = packet.sender_pid;
+            client_session.display_pid = spawn_display_process(&client_session.display_fd, argv[0]);
+
+            // 4. Initialisation logique du jeu
+            init_game(&client_session.state);
+
+            // Envoi de l'état initial (évite l'écran noir au démarrage)
+            if (write((int)client_session.display_fd, &client_session.state, sizeof(GameState)) == -1)
+            {
+                perror("[GAME] Erreur envoi initial");
+            }
+
+            array_list_push_back(&players, &client_session);
+            kill(client_session.input_pid, SIGUSR1);
             continue;
         }
-
-        // Gestion de l'arrêt
-        if (packet.cmd == CMD_QUIT)
+        
+        active_session = NULL;
+        for (size_t i=0; i<players.size; i++)
         {
-            printf("[GAME] Signal d'arrêt reçu.\n");
-            break;
+            ClientSession *session = array_list_get_pointer_mut(&players, i);
+            if (packet.sender_pid == session->input_pid)
+            {
+                active_session = session;
+
+                pthread_kill(t_move,SIGUSR2);
+                pthread_kill(t_goal,SIGUSR2);
+                // Transmission de la commande au thread Move
+                input_data.cmd = packet.cmd;
+                input_data.has_new_cmd = true;
+                // Gestion de l'arrêt
+                if (packet.cmd == CMD_QUIT)
+                {
+                    printf("[GAME] Signal d'arrêt reçu.\n");
+
+                    // =============================================================
+                    // NETTOYAGE
+                    // =============================================================
+
+                    // On tue Processus Affichage (avec SIG_CLEAN_EXIT car le processus Affichage a un handler)
+                    kill(session->display_pid, SIG_CLEAN_EXIT);
+
+                    // On attend la mort du Processus Affichage
+                    waitpid(session->display_pid, NULL, 0);
+
+                    // On tue le Processus Input (avec SIG_END_GAME car le processus Input a un handler)
+                    if (session->input_pid)
+                    {
+                        kill(session->input_pid, SIG_END_GAME);
+                    }
+
+                    printf("[GAME] Arrêt du système.\n");
+
+                    close(session->display_fd); // Cela provoquera EOF côté Display
+
+                    break;
+                }
+                kill(active_session->input_pid, SIGUSR1);
+                break;
+            }
         }
-
-        // Transmission de la commande au thread Move
-        input_data.cmd = packet.cmd;
-        input_data.has_new_cmd = true;
-
-        // Réveiller le thread Move
     }
-
-    // =============================================================
-    // NETTOYAGE
-    // =============================================================
-
-    // On tue Processus Affichage (avec SIG_CLEAN_EXIT car le processus Affichage a un handler)
-    kill(pid_display, SIG_CLEAN_EXIT);
-
-    // On attend la mort du Processus Affichage
-    waitpid(pid_display, NULL, 0);
-
-    // On tue le Processus Input (avec SIG_END_GAME car le processus Input a un handler)
-    if (input_process_pid)
-    {
-        kill(input_process_pid, SIG_END_GAME);
-    }
-
-    printf("[GAME] Arrêt du système.\n");
 
     fclose(input_stream);
-    close(display_pipe_fd); // Cela provoquera EOF côté Display
 
     // Supprimer le fichier pipe nommé du disque
     unlink(NAMED_PIPE_PATH);

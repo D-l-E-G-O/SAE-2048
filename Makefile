@@ -53,7 +53,8 @@ GAME_OBJS = $(OBJ_DIR)/game_main.o \
             $(OBJ_DIR)/thread_move.o \
             $(OBJ_DIR)/thread_goal.o \
             $(OBJ_DIR)/game_logic.o \
-            $(OBJ_DIR)/utils.o
+            $(OBJ_DIR)/utils.o \
+            $(OBJ_DIR)/array_list.o
 
 $(TARGET_GAME): $(GAME_OBJS)
 	@echo "Linking Game Engine..."
