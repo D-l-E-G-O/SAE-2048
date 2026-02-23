@@ -81,7 +81,7 @@ void *thread_goal_routine(void *arg)
             current_state.game_over = true;
         }
 
-        if (write(display_fd, &current_state, sizeof(GameState)) == -1)
+        if (write(display_fd, &active_session->current_state, sizeof(GameState)) == -1)
         {
             perror("[GOAL] error Pipe write");
         }

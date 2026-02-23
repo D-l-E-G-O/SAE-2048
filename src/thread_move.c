@@ -34,11 +34,11 @@ void *thread_move_routine(void *arg)
 
         if (cmd >= CMD_UP && cmd <= CMD_RIGHT)
         {
-            bool const moved = move_grid(&current_state, cmd);
+            bool const moved = move_grid(&active_session->current_state, cmd);
 
             if (moved)
             {
-                spawn_tile(&current_state);
+                spawn_tile(&active_session->current_state);
                 printf("[Move Thread] Move applied (%d). Score: %d\n", cmd, current_state.score);
 
                 // Déclencher le thread Goal
