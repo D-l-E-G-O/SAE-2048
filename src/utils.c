@@ -4,6 +4,7 @@
 #include <termios.h>     // Pour struct termios, tcgetattr, tcsetattr
 #include "../include/utils.h"
 #include "../include/common.h"
+#include "../include/game_threads.h"
 
 
 // =========================================================
@@ -76,4 +77,11 @@ void print_grid_ascii(const GameState *state) {
         printf("|\n");
     }
     printf("---------------------\n");
+}
+
+bool equals(void const *a, void const *b)
+{
+    ClientSession ca = *(ClientSession*)a;
+    ClientSession cb = *(ClientSession*)b;
+    return ca.input_pid == cb.input_pid;
 }
