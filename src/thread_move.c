@@ -1,3 +1,4 @@
+#define _XOPEN_SOURCE 700
 #include <stdio.h>
 #include <pthread.h>
 #include "../include/game_threads.h"
@@ -7,7 +8,7 @@ volatile sig_atomic_t active_move = 0;
 
 void start_move(int sig)
 {
-    active_move=1;
+    active_move = 1;
 }
 
 /**
@@ -29,12 +30,9 @@ void *thread_move_routine(void *arg)
     sigemptyset(&sa.sa_mask);
     sigaction(SIGUSR2, &sa, NULL);
 
-
     while (!stop_requested)
     {
-        printf("UIIIIIIIIIIIIIIII\n");
         pause();
-        printf("RAHHHHHHHHHHHHHH\n");
         GameState state = active_session->state;
 
         if (stop_requested)
@@ -53,19 +51,21 @@ void *thread_move_routine(void *arg)
             if (moved)
             {
                 spawn_tile(&active_session->state);
-                printf("[Move Thread] Move applied (%d). Score: %d\n", cmd, state.score);
+                printf("[Move] Deplacement appliqué (%d). Score: %d\n", cmd, state.score);
 
                 // Déclencher le thread Goal
                 grid_has_changed = true;
+                pthread_kill(goal_thread_id, SIGUSR2);
             }
             else
             {
-                printf("[Move Thread] Invalid move!\n");
+                printf("[Move] Deplacement invalide !\n");
+                engine_busy = 0;
             }
         }
-        active_move=0;
+        active_move = 0;
     }
 
-    printf("[Move Thread] Thread terminated.\n");
+    printf("[Move] Fin du Thread.\n");
     return NULL;
 }

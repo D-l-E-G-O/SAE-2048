@@ -27,8 +27,12 @@ typedef struct InputSharedData
 extern InputSharedData input_data; // Données venant du clavier
 
 extern pthread_t main_thread_id; // PID du thread main
+extern pthread_t move_thread_id; // PID du thread Move
+extern pthread_t goal_thread_id; // PID du thread Goal
 
 extern volatile sig_atomic_t stop_requested;
+
+extern volatile sig_atomic_t engine_busy; // Flag de synchronisation
 
 typedef struct ClientSession
 {

@@ -6,7 +6,7 @@ volatile sig_atomic_t active_goal = 0;
 
 void start_goal(int sig)
 {
-    active_goal=1;
+    active_goal = 1;
 }
 
 // --- Fonctions utilitaires ---
@@ -66,7 +66,6 @@ void *thread_goal_routine(void *arg)
     sigemptyset(&sa.sa_mask);
     sigaction(SIGUSR2, &sa, NULL);
 
-
     while (!stop_requested)
     {
         pause();
@@ -92,7 +91,7 @@ void *thread_goal_routine(void *arg)
 
         if (write(display_fd, &active_session->state, sizeof(GameState)) == -1)
         {
-            perror("[GOAL] error Pipe write");
+            perror("[GOAL] erreur d'ecriture dans le Pipe");
         }
 
         if (state.game_over)
@@ -100,7 +99,10 @@ void *thread_goal_routine(void *arg)
             pthread_kill(main_thread_id, SIG_END_GAME);
             break;
         }
-        active_goal=0;
+        active_goal = 0;
+
+        // On libère le thread Main
+        engine_busy = 0;
     }
 
     pthread_exit(NULL);

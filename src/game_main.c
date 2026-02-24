@@ -14,9 +14,13 @@ InputSharedData input_data = {
     .cmd = CMD_NONE};
 
 pthread_t main_thread_id;
+pthread_t move_thread_id;
+pthread_t goal_thread_id;
 
 // Globale pour signaler l'arrêt demandé
 volatile sig_atomic_t stop_requested = 0;
+
+volatile sig_atomic_t engine_busy = 0;
 
 ClientSession *active_session = NULL;
 
@@ -178,14 +182,13 @@ int main(int argc, char *argv[])
     printf("[GAME] --- Initialisation du Moteur 2048 ---\n");
 
     // 3. Démarrage des Threads "Ouvriers"
-    pthread_t t_move, t_goal;
 
-    if (pthread_create(&t_move, NULL, thread_move_routine, NULL) != 0)
+    if (pthread_create(&move_thread_id, NULL, thread_move_routine, NULL) != 0)
     {
         perror("[GAME] Erreur create thread move");
         exit(EXIT_FAILURE);
     }
-    if (pthread_create(&t_goal, NULL, thread_goal_routine, NULL) != 0)
+    if (pthread_create(&goal_thread_id, NULL, thread_goal_routine, NULL) != 0)
     {
         perror("[GAME] Erreur create thread goal");
         exit(EXIT_FAILURE);
@@ -222,20 +225,29 @@ int main(int argc, char *argv[])
             kill(client_session.input_pid, SIGUSR1);
             continue;
         }
-        
+
         active_session = NULL;
-        for (size_t i=0; i<players.size; i++)
+        for (size_t i = 0; i < players.size; i++)
         {
             ClientSession *session = array_list_get_pointer_mut(&players, i);
             if (packet.sender_pid == session->input_pid)
             {
                 active_session = session;
 
-                pthread_kill(t_move,SIGUSR2);
-                pthread_kill(t_goal,SIGUSR2);
+                engine_busy = 1;
+
                 // Transmission de la commande au thread Move
                 input_data.cmd = packet.cmd;
                 input_data.has_new_cmd = true;
+
+                pthread_kill(move_thread_id, SIGUSR2);
+
+                // On attend que les thread Move et Goal aient terminé leur travail
+                while (engine_busy && !stop_requested)
+                {
+                    usleep(1000);
+                }
+
                 // Gestion de l'arrêt
                 if (packet.cmd == CMD_QUIT)
                 {
