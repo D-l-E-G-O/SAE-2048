@@ -183,7 +183,7 @@ int main(void)
                     break;
                 }
                 can_send = 0; // On se bloque en attendant le feu vert du moteur
-                while (!can_send && !stop_requested)
+                while (!can_send && cmd != CMD_QUIT)
                 {
                     pause(); // Attente passive du signal SIGUSR2
                 }

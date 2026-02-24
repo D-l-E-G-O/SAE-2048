@@ -2,7 +2,6 @@
 #include "../include/game_threads.h"
 #include "../include/game_logic.h"
 #include "../include/array_list.h"
-#include "../include/utils.h"
 
 // =================================================================
 // GLOBALES
@@ -144,8 +143,16 @@ static FILE *setup_input_pipe()
     return fp;
 }
 
+static bool equals(void const *a, void const *b)
+{
+    ClientSession ca = *(ClientSession *)a;
+    ClientSession cb = *(ClientSession *)b;
+    return ca.input_pid == cb.input_pid;
+}
+
 static void kill_session()
 {
+    sleep(1); // Pour laisser le temps à l'affichage
     size_t i = array_list_find(&players, active_session, equals);
     array_list_erase(&players, i);
 
@@ -154,21 +161,14 @@ static void kill_session()
     // =============================================================
 
     // On tue Processus Affichage (avec SIG_CLEAN_EXIT car le processus Affichage a un handler)
-    kill(active_session->display_pid, SIG_CLEAN_EXIT);
+    // kill(active_session->display_pid, SIG_CLEAN_EXIT);
 
     // On attend la mort du Processus Affichage
-    waitpid(active_session->display_pid, NULL, 0);
+    // waitpid(active_session->display_pid, NULL, 0);
 
-    // On tue le Processus Input (avec SIG_END_GAME car le processus Input a un handler)
-    if (active_session->input_pid)
-    {
-        kill(active_session->input_pid, SIGUSR2);
-        kill(active_session->input_pid, SIGUSR2);
-        kill(active_session->input_pid, SIG_CLEAN_EXIT);
-        kill(active_session->input_pid, SIGUSR2);
-    }
+    //close(active_session->display_fd); // Cela provoquera EOF côté Display
 
-    active_session = NULL;
+    //active_session = NULL;
     printf("[GAME] Fin de la session.\n");
     if (players.size == 0)
     {
@@ -187,8 +187,7 @@ void stop_game(int sig)
     size_t i;
     printf("[GAME] Signal d'arrêt reçu (CTRL+C).\n");
     if (sig == SIG_END_GAME)
-    {             // Fin du jeu standard (pas spontanée)
-        sleep(1); // Pour laisser le temps à l'affichage
+    { // Fin du jeu standard (pas spontanée)
         kill_session();
     }
 }
