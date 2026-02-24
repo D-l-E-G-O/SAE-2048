@@ -42,7 +42,7 @@ void *thread_move_routine(void *arg)
         input_data.has_new_cmd = false;
 
         if (cmd == CMD_QUIT)
-            break;
+            continue;
 
         if (cmd >= CMD_UP && cmd <= CMD_RIGHT)
         {

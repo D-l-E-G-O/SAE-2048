@@ -6,30 +6,42 @@
 #include "../include/utils.h"
 
 // --- COULEURS ANSI ---
-#define COLOR_RESET   "\033[0m"
-#define COLOR_BOLD    "\033[1m"
-#define COLOR_GRID    "\033[38;5;240m"  // Gris foncé pour les cases
-#define COLOR_TITLE   "\033[36m"        // Cyan
-#define COLOR_SCORE   "\033[33m"        // Jaune
-#define COLOR_WIN     "\033[32m"        // Vert
-#define COLOR_LOSE    "\033[31m"        // Rouge
+#define COLOR_RESET "\033[0m"
+#define COLOR_BOLD "\033[1m"
+#define COLOR_GRID "\033[38;5;240m" // Gris foncé pour les cases
+#define COLOR_TITLE "\033[36m"      // Cyan
+#define COLOR_SCORE "\033[33m"      // Jaune
+#define COLOR_WIN "\033[32m"        // Vert
+#define COLOR_LOSE "\033[31m"       // Rouge
 
 // Fonction interne pour choisir la couleur d'un nombre
-const char* get_color(int value) {
-    switch(value) {
-        case 0:    return "\033[38;5;236m"; // Gris très sombre (vide)
-        case 2:    return "\033[37m";       // Blanc
-        case 4:    return "\033[33m";       // Jaune pâle
-        case 8:    return "\033[38;5;208m"; // Orange
-        case 16:   return "\033[38;5;202m"; // Orange foncé
-        case 32:   return "\033[31m";       // Rouge
-        case 64:   return "\033[35m";       // Magenta
-        case 128:  return "\033[36m";       // Cyan
-        default:   return "\033[32m";       // Vert (Niveaux élevés)
+const char *get_color(int value)
+{
+    switch (value)
+    {
+    case 0:
+        return "\033[38;5;236m"; // Gris très sombre (vide)
+    case 2:
+        return "\033[37m"; // Blanc
+    case 4:
+        return "\033[33m"; // Jaune pâle
+    case 8:
+        return "\033[38;5;208m"; // Orange
+    case 16:
+        return "\033[38;5;202m"; // Orange foncé
+    case 32:
+        return "\033[31m"; // Rouge
+    case 64:
+        return "\033[35m"; // Magenta
+    case 128:
+        return "\033[36m"; // Cyan
+    default:
+        return "\033[32m"; // Vert (Niveaux élevés)
     }
 }
 
-void draw_interface(const GameState *state) {
+void draw_interface(const GameState *state)
+{
     clear_screen(); // Fonction définie dans utils.c
 
     // En-tête
@@ -38,36 +50,44 @@ void draw_interface(const GameState *state) {
 
     // Dessin de la grille ligne par ligne
     printf(COLOR_GRID "┌──────┬──────┬──────┬──────┐\n" COLOR_RESET);
-    
-    for (int y = 0; y < GRID_SIZE; y++) {
+
+    for (int y = 0; y < GRID_SIZE; y++)
+    {
         printf(COLOR_GRID "│" COLOR_RESET); // Bord gauche
-        
-        for (int x = 0; x < GRID_SIZE; x++) {
+
+        for (int x = 0; x < GRID_SIZE; x++)
+        {
             int val = state->cells[y][x];
-            
-            if (val == 0) {
+
+            if (val == 0)
+            {
                 // Case vide : on affiche un point ou rien
                 printf("      ");
-            } 
-            else {
+            }
+            else
+            {
                 // Case remplie : on centre le nombre et on met la couleur
-                const char* c = get_color(val);
-                
+                const char *c = get_color(val);
+
                 // La case fait 6 caractères de large.
                 // On ajuste les espaces selon la taille du nombre.
-                if (val < 10) { 
+                if (val < 10)
+                {
                     // 1 chiffre : 2 espaces avant, 3 après
                     printf("%s  %d   " COLOR_RESET, c, val);
-                } 
-                else if (val < 100) { 
+                }
+                else if (val < 100)
+                {
                     // 2 chiffres : 2 espaces avant, 2 après
                     printf("%s  %d  " COLOR_RESET, c, val);
-                } 
-                else if (val < 1000) { 
+                }
+                else if (val < 1000)
+                {
                     // 3 chiffres : 1 espace avant, 2 après
                     printf("%s %d  " COLOR_RESET, c, val);
-                } 
-                else { 
+                }
+                else
+                {
                     // 4 chiffres ou plus : 1 espace avant, 1 après
                     printf("%s %d " COLOR_RESET, c, val);
                 }
@@ -75,20 +95,25 @@ void draw_interface(const GameState *state) {
             printf(COLOR_GRID "│" COLOR_RESET); // Séparateur vertical
         }
         printf("\n"); // Fin de la ligne de chiffres
-        
+
         // Séparateur horizontal
-        if (y < GRID_SIZE-1) {
+        if (y < GRID_SIZE - 1)
+        {
             printf(COLOR_GRID "├──────┼──────┼──────┼──────┤\n" COLOR_RESET);
         }
     }
     printf(COLOR_GRID "└──────┴──────┴──────┴──────┘\n" COLOR_RESET);
 
     // Messages de fin
-    if (state->game_over) {
+    if (state->game_over)
+    {
         printf("\n");
-        if (state->victory) {
+        if (state->victory)
+        {
             printf(COLOR_WIN COLOR_BOLD "VICTOIRY ! You reached %d !\n" COLOR_RESET, TARGET_VAL);
-        } else {
+        }
+        else
+        {
             printf(COLOR_LOSE COLOR_BOLD "GAME OVER... No more moves.\n" COLOR_RESET);
         }
     }
@@ -97,10 +122,12 @@ void draw_interface(const GameState *state) {
     fflush(stdout);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     // Le file descriptor du pipe anonyme est passé en argument (argv[1])
     // par le processus père via execl.
-    if (argc < 2) {
+    if (argc < 2)
+    {
         fprintf(stderr, "Erreur: Ce programme doit être lancé par le moteur de jeu.\n");
         return EXIT_FAILURE;
     }
@@ -112,10 +139,12 @@ int main(int argc, char *argv[]) {
     // --- BOUCLE PRINCIPALE ---
     // read() est bloquant : le programme s'endort ici tant qu'il n'y a rien à lire.
     // Il se réveille dès que le thread Goal écrit dans le pipe.
-    while ((bytes_read = read(pipe_fd, &buffer, sizeof(GameState))) > 0) {
-        
+    while ((bytes_read = read(pipe_fd, &buffer, sizeof(GameState))) > 0)
+    {
+
         // Sécurité : Vérifier qu'on a bien lu une structure entière
-        if (bytes_read != sizeof(GameState)) {
+        if (bytes_read != sizeof(GameState))
+        {
             fprintf(stderr, "Erreur lecture pipe: paquet incomplet\n");
             continue;
         }

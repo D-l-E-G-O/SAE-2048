@@ -144,6 +144,39 @@ static FILE *setup_input_pipe()
     return fp;
 }
 
+static void kill_session()
+{
+    size_t i = array_list_find(&players, active_session, equals);
+    array_list_erase(&players, i);
+
+    // =============================================================
+    // NETTOYAGE
+    // =============================================================
+
+    // On tue Processus Affichage (avec SIG_CLEAN_EXIT car le processus Affichage a un handler)
+    kill(active_session->display_pid, SIG_CLEAN_EXIT);
+
+    // On attend la mort du Processus Affichage
+    waitpid(active_session->display_pid, NULL, 0);
+
+    // On tue le Processus Input (avec SIG_END_GAME car le processus Input a un handler)
+    if (active_session->input_pid)
+    {
+        kill(active_session->input_pid, SIGUSR2);
+        kill(active_session->input_pid, SIGUSR2);
+        kill(active_session->input_pid, SIG_CLEAN_EXIT);
+        kill(active_session->input_pid, SIGUSR2);
+    }
+
+    active_session = NULL;
+    printf("[GAME] Fin de la session.\n");
+    if (players.size == 0)
+    {
+        // On lève le drapeau pour dire à la boucle principale de s'arrêter
+        stop_requested = 1;
+    }
+}
+
 // =================================================================
 // HANDLERS
 // =================================================================
@@ -152,34 +185,11 @@ static FILE *setup_input_pipe()
 void stop_game(int sig)
 {
     size_t i;
-    printf("[GAME] Signal d'arrêt reçu.\n");
+    printf("[GAME] Signal d'arrêt reçu (CTRL+C).\n");
     if (sig == SIG_END_GAME)
     {             // Fin du jeu standard (pas spontanée)
         sleep(1); // Pour laisser le temps à l'affichage
-        i = array_list_find(&players, active_session, equals);
-        array_list_erase(&players, i);
-        // =============================================================
-        // NETTOYAGE
-        // =============================================================
-
-        // On tue Processus Affichage (avec SIG_CLEAN_EXIT car le processus Affichage a un handler)
-        kill(active_session->display_pid, SIG_CLEAN_EXIT);
-
-        // On attend la mort du Processus Affichage
-        waitpid(active_session->display_pid, NULL, 0);
-
-        // On tue le Processus Input (avec SIG_END_GAME car le processus Input a un handler)
-        if (active_session->input_pid)
-        {
-            kill(active_session->input_pid, SIG_END_GAME);
-        }
-        active_session = NULL;
-        printf("[GAME] Arrêt du système.\n");
-    }
-    if(players.size == 0)
-    {
-        // On lève le drapeau pour dire à la boucle principale de s'arrêter
-        stop_requested = 1;
+        kill_session();
     }
 }
 
@@ -247,7 +257,21 @@ int main(int argc, char *argv[])
             }
 
             array_list_push_back(&players, &client_session);
-            kill(client_session.input_pid, SIGUSR1);
+            kill(client_session.input_pid, SIGUSR2);
+            continue;
+        }
+
+        // Gestion de l'arrêt
+        if (packet.cmd == CMD_QUIT)
+        {
+            printf("[GAME] Signal d'arrêt reçu (q).\n");
+
+            // =============================================================
+            // NETTOYAGE
+            // =============================================================
+
+            kill_session();
+
             continue;
         }
 
@@ -273,20 +297,7 @@ int main(int argc, char *argv[])
                     usleep(1000);
                 }
 
-                // Gestion de l'arrêt
-                if (packet.cmd == CMD_QUIT)
-                {
-                    printf("[GAME] Signal d'arrêt reçu.\n");
-
-                    // =============================================================
-                    // NETTOYAGE
-                    // =============================================================
-
-                    close(session->display_fd); // Cela provoquera EOF côté Display
-
-                    break;
-                }
-                kill(active_session->input_pid, SIGUSR1);
+                kill(active_session->input_pid, SIGUSR2);
                 break;
             }
         }
