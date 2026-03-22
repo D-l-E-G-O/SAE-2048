@@ -61,7 +61,14 @@ static UserCommand get_user_command()
 {
     char c;
     // Lecture d'un seul octet
-    if (read(STDIN_FILENO, &c, 1) <= 0)
+    ssize_t ret = read(STDIN_FILENO, &c, 1);
+
+    // Si EOF (terminal fermé ou CTRL+D), on quitte proprement
+    if (ret == 0)
+        return CMD_QUIT;
+
+    // Si erreur de lecture (ex: signal interrompu), on ignore
+    if (ret < 0)
         return CMD_NONE;
 
     if (c == 'q')

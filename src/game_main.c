@@ -227,6 +227,15 @@ int main(int argc, char *argv[])
 
         if (packet.cmd == CMD_QUIT)
         {
+            // On s'assure que la mémoire partagée est vide
+            // pour éviter d'écrire sur un joueur qui vient de se connecter
+            pthread_mutex_lock(&shm_mutex);
+            while (shm_slot->status != SLOT_FREE && !stop_requested)
+            {
+                pthread_cond_wait(&cond_free, &shm_mutex);
+            }
+            pthread_mutex_unlock(&shm_mutex);
+
             pthread_mutex_lock(&heap_mutex);
             for (size_t i = 0; i < players.size; i++)
             {
@@ -330,7 +339,8 @@ int main(int argc, char *argv[])
     for (size_t i = 0; i < players.size; i++)
     {
         ClientSession const *s = array_list_get_pointer(&players, i);
-        kill(s->input_pid, SIG_CLEAN_EXIT);
+        kill(s->input_pid, SIG_CLEAN_EXIT); // Réveille et ferme les Inputs
+        close(s->display_fd);               // Déclenche le EOF qui ferme les Displays
     }
     pthread_mutex_unlock(&heap_mutex);
 
