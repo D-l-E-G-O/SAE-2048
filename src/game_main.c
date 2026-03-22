@@ -56,7 +56,7 @@ static pid_t spawn_display_process(int *write_fd_ptr, const char *argv0)
         // On est dans le processus enfant (le futur Display)
         // ==========================================================
         
-        // 1. On ferme le bout d'écriture du NOUVEAU pipe (celui de ce joueur)
+        // 1. On ferme le bout d'écriture du nouveau pipe (celui de ce joueur)
         close(pipe_fd[1]);
         
         // 2. On ferme TOUS les bouts d'écriture des ANCIENS joueurs 
@@ -84,6 +84,24 @@ static pid_t spawn_display_process(int *write_fd_ptr, const char *argv0)
     close(pipe_fd[0]);
     *write_fd_ptr = pipe_fd[1];
     return pid;
+}
+
+static FILE *setup_input_pipe()
+{
+    if (mkfifo(NAMED_PIPE_PATH, 0666) == -1) {
+        if (errno != EEXIST) {
+            perror("[GAME] Erreur mkfifo");
+            exit(EXIT_FAILURE);
+        }
+    }
+    printf("[GAME] En attente du contrôleur (Input) sur %s...\n", NAMED_PIPE_PATH);
+    FILE *fp = fopen(NAMED_PIPE_PATH, "r+b");
+    if (fp == NULL) {
+        perror("[GAME] Erreur ouverture pipe nommé");
+        exit(EXIT_FAILURE);
+    }
+    printf("[GAME] Contrôleur connecté.\n");
+    return fp;
 }
 
 // =================================================================
