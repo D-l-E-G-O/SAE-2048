@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -11,45 +13,44 @@
 #include <wait.h>
 #include "common.h"
 
-// --- VARIABLES PARTAGÉES (Déclarations "extern") ---
-// Le mot-clé "extern" dit : "C'est défini dans un autre .c, mais je l'utilise ici"
-
-// Flag pour l'attente active dans le thread Goal
-extern volatile bool grid_has_changed;
-
-// Structure pour la communication Thread Main -> Thread Move
-typedef struct InputSharedData
+/* Statut actuel de l'emplacement de mémoire partagé */
+typedef enum
 {
+    SLOT_FREE,
+    SLOT_TO_MOVE,
+    SLOT_TO_GOAL
+} SlotStatus;
+
+/* Structure du segment de mémoire partagé */
+typedef struct SharedGameSlot
+{
+    GameState state;
     UserCommand cmd;
-    volatile bool has_new_cmd;
-} InputSharedData;
+    int display_fd;
+    pid_t input_pid;
+    void *heap_session;
+    SlotStatus status;
+} SharedGameSlot;
 
-extern InputSharedData input_data; // Données venant du clavier
+extern int shm_id;
+extern SharedGameSlot *shm_slot;
 
-extern pthread_t main_thread_id; // PID du thread main
-extern pthread_t move_thread_id; // PID du thread Move
-extern pthread_t goal_thread_id; // PID du thread Goal
+// --- Synchronisation multi-thread ---
+extern pthread_mutex_t shm_mutex;
+extern pthread_cond_t cond_move;
+extern pthread_cond_t cond_goal;
+extern pthread_cond_t cond_free;
 
+extern pthread_t main_thread_id;
 extern volatile sig_atomic_t stop_requested;
-
-extern volatile sig_atomic_t engine_busy; // Flag de synchronisation
 
 typedef struct ClientSession
 {
-    pid_t input_pid;   // PID du joueur
-    pid_t display_pid; // PID du processus d'affichage dédié
-    int display_fd;    // Descripteur de fichier du pipe du joueur
-    GameState state;   // Etat de jeu du joueur
+    pid_t input_pid;
+    pid_t display_pid;
+    int display_fd;
+    GameState state;
 } ClientSession;
 
-extern ClientSession *active_session; // La session en cours de traitement
-
-// --- PROTOTYPES DES FONCTIONS DE THREADS ---
 void *thread_move_routine(void *arg);
 void *thread_goal_routine(void *arg);
-void *thread_main_routine(void *arg);
-
-void process_2048(pid_t pid_process_display);
-void process_display();
-int check_victory(int cells[GRID_SIZE][GRID_SIZE]);
-int check_defeat(int cells[GRID_SIZE][GRID_SIZE]);

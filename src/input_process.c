@@ -161,37 +161,35 @@ int main(void)
     struct termios orig_termios = set_raw_mode();
 
     // 5. Boucle d'événements
-    while (true)
+    while (!stop_requested)
     {
-        UserCommand cmd = get_user_command();
+        UserCommand const cmd = get_user_command();
 
+        // Si un signal d'arrêt est arrivé pendant la lecture du clavier
         if (stop_requested)
-        {
-            cmd = CMD_QUIT;
-        }
+            break;
 
         if (cmd != CMD_NONE && can_send)
         {
             packet.cmd = cmd;
 
-            // Envoi au moteur (Si le mode de fermeture n'est pas à 1 -> Jeu déjà fini)
-            if (stop_requested != 2)
+            if (write(pipe_fd, &packet, sizeof(InputPacket)) == -1)
             {
-                if (write(pipe_fd, &packet, sizeof(InputPacket)) == -1)
-                {
-                    // Si write échoue (ex: Broken Pipe), le jeu a crashé ou fermé
-                    break;
-                }
-                can_send = 0; // On se bloque en attendant le feu vert du moteur
-                while (!can_send && cmd != CMD_QUIT)
-                {
-                    pause(); // Attente passive du signal SIGUSR2
-                }
+                // Le pipe a été fermé (le jeu a crashé ou s'est arrêté)
+                break;
             }
 
             if (cmd == CMD_QUIT)
             {
                 break;
+            }
+
+            can_send = 0;
+
+            // Si SIG_CLEAN_EXIT arrive, la boucle s'arrête immédiatement
+            while (!can_send && !stop_requested)
+            {
+                pause();
             }
         }
     }
