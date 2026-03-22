@@ -32,11 +32,11 @@ void *thread_move_routine(void *arg)
         if (moved)
         {
             spawn_tile(&shm_slot->state);
-            printf("[Move] Deplacement appliqué\n");
+            // printf("[Move] Deplacement appliqué\n");
         }
         else
         {
-            printf("[Move] Deplacement invalide !\n");
+            // printf("[Move] Deplacement invalide !\n");
         }
 
         // Pass control to Goal Thread

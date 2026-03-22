@@ -18,5 +18,3 @@ void restore_mode(struct termios orig_termios);
 
 // Affiche la grille avec des caractères ascii
 void print_grid_ascii(const GameState *state);
-
-bool equals(void const *a, void const *b);

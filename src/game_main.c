@@ -233,13 +233,14 @@ int main(int argc, char *argv[])
                 ClientSession const *s = array_list_get_pointer(&players, i);
                 if (s->input_pid == packet.sender_pid)
                 {
-                    // 1. Fermer l'affichage du joueur
-                    kill(s->display_pid, SIG_CLEAN_EXIT);
+                    // 1. Fermer le descripteur de fichier
+                    // Ca envoie automatiquement un EOF au processus Display
+                    close(s->display_fd);
 
-                    // Attendre la mort du processus pour éviter les zombies
+                    // 2. Attendre que le Display s'éteigne proprement grâce au EOF
                     waitpid(s->display_pid, NULL, 0);
 
-                    // 2. Le retirer du Tas
+                    // 3. Le retirer du Tas
                     array_list_erase(&players, i);
                     printf("[GAME] Joueur %d déconnecté.\n", packet.sender_pid);
                     break;
@@ -322,6 +323,16 @@ int main(int argc, char *argv[])
     pthread_cond_destroy(&cond_free);
     shmdt(shm_slot);
     shmctl(shm_id, IPC_RMID, NULL);
+
+    // Prévenir tous les clients que le serveur ferme
+    // Ca va sortir les terminaux Input de leur pause() et restaurer les claviers.
+    pthread_mutex_lock(&heap_mutex);
+    for (size_t i = 0; i < players.size; i++)
+    {
+        ClientSession const *s = array_list_get_pointer(&players, i);
+        kill(s->input_pid, SIG_CLEAN_EXIT);
+    }
+    pthread_mutex_unlock(&heap_mutex);
 
     // Nettoyage du tas
     array_list_deinit(&players);
