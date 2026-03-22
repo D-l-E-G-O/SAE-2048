@@ -1,4 +1,4 @@
-#include "array_list.h"
+#include "../include/array_list.h"
 
 #include <string.h>
 #include <assert.h>

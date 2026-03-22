@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>  // Pour STDIN_FILENO
 #include <termios.h> // Pour struct termios, tcgetattr, tcsetattr
 #include "../include/utils.h"
