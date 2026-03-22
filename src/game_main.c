@@ -45,49 +45,45 @@ static pid_t spawn_display_process(int *write_fd_ptr, const char *argv0)
         exit(EXIT_FAILURE);
     }
 
-    // ==========================================================
-    // Force la fermeture de ce descripteur d'écriture pour tous 
-    // les futurs enfants qui feront un execl().
-    // ==========================================================
-    fcntl(pipe_fd[1], F_SETFD, FD_CLOEXEC);
-
     pid_t pid = fork();
     if (pid < 0) {
         perror("[GAME] Erreur fatal: fork");
         exit(EXIT_FAILURE);
     }
     if (pid == 0) {
+        // ==========================================================
+        // LA SOLUTION BLINDÉE CONTRE LE DEADLOCK EST ICI
+        // On est dans le processus enfant (le futur Display)
+        // ==========================================================
+        
+        // 1. On ferme le bout d'écriture du NOUVEAU pipe (celui de ce joueur)
         close(pipe_fd[1]);
+        
+        // 2. On ferme TOUS les bouts d'écriture des ANCIENS joueurs 
+        // que cet enfant a hérité accidentellement de son père.
+        for (size_t i = 0; i < players.size; i++) {
+            ClientSession const *s = array_list_get_pointer(&players, i);
+            if (s->display_fd > 0) {
+                close(s->display_fd); // On coupe le lien fantôme
+            }
+        }
+        // ==========================================================
+
         char fd_str[16];
         snprintf(fd_str, sizeof(fd_str), "%d", pipe_fd[0]);
         char path_to_display[256];
         get_display_path(path_to_display, sizeof(path_to_display), argv0);
+        
         execl(path_to_display, "display", fd_str, NULL);
-        fprintf(stderr, "[GAME] Erreur: Impossible de lancer %s\n", path_to_display);
+        
         perror("[GAME] Erreur fatal: execl display");
         exit(EXIT_FAILURE);
     }
+    
+    // Processus père (game_main)
     close(pipe_fd[0]);
     *write_fd_ptr = pipe_fd[1];
     return pid;
-}
-
-static FILE *setup_input_pipe()
-{
-    if (mkfifo(NAMED_PIPE_PATH, 0666) == -1) {
-        if (errno != EEXIST) {
-            perror("[GAME] Erreur mkfifo");
-            exit(EXIT_FAILURE);
-        }
-    }
-    printf("[GAME] En attente du contrôleur (Input) sur %s...\n", NAMED_PIPE_PATH);
-    FILE *fp = fopen(NAMED_PIPE_PATH, "r+b");
-    if (fp == NULL) {
-        perror("[GAME] Erreur ouverture pipe nommé");
-        exit(EXIT_FAILURE);
-    }
-    printf("[GAME] Contrôleur connecté.\n");
-    return fp;
 }
 
 // =================================================================
