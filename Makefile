@@ -19,9 +19,6 @@ TARGET_GAME    = $(CORE_DIR)/game_2048
 TARGET_INPUT   = $(CORE_DIR)/input
 TARGET_DISPLAY = $(CORE_DIR)/display
 
-# Le Launcher sera à la racine de bin/
-TARGET_LAUNCHER= $(BIN_DIR)/launcher
-
 # Liste de tous les exécutables pour la règle 'all'
 # [CORRECTION] Ajout du launcher dans la liste globale
 TARGETS = $(TARGET_GAME) $(TARGET_INPUT) $(TARGET_DISPLAY) $(TARGET_LAUNCHER)
@@ -37,12 +34,6 @@ all: directories $(TARGETS)
 directories:
 	@mkdir -p $(OBJ_DIR)
 	@mkdir -p $(CORE_DIR)
-
-# [AJOUT] Règle pour lancer le jeu facilement
-run: all
-	@echo "Lancement du jeu via le launcher..."
-	./$(TARGET_LAUNCHER)
-
 
 # ==========================================
 #   Règles de Linkage (Création des exécutables)
@@ -68,11 +59,6 @@ $(TARGET_INPUT): $(OBJ_DIR)/input_process.o $(OBJ_DIR)/utils.o
 # C. Processus Affichage (Rendu graphique)
 $(TARGET_DISPLAY): $(OBJ_DIR)/display_process.o $(OBJ_DIR)/utils.o
 	@echo "Linking Display System..."
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
-
-# D. Launcher (Le processus père qui lance les autres)
-$(TARGET_LAUNCHER): $(OBJ_DIR)/launcher.o $(OBJ_DIR)/utils.o
-	@echo "Linking Launcher..."
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 # ==========================================

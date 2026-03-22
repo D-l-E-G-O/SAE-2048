@@ -59,7 +59,7 @@ static pid_t spawn_display_process(int *write_fd_ptr, const char *argv0)
         // 1. On ferme le bout d'écriture du nouveau pipe (celui de ce joueur)
         close(pipe_fd[1]);
         
-        // 2. On ferme TOUS les bouts d'écriture des ANCIENS joueurs 
+        // 2. On ferme tous les bouts d'écriture des anciens joueurs 
         // que cet enfant a hérité accidentellement de son père.
         for (size_t i = 0; i < players.size; i++) {
             ClientSession const *s = array_list_get_pointer(&players, i);
