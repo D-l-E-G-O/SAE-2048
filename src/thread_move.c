@@ -9,43 +9,39 @@
  */
 void *thread_move_routine(void *arg)
 {
-    (void)arg; // Pour éviter le warning "unused parameter"
+    // On récupère l'index du slot attribué à ce thread
+    int slot_index = *(int *)arg;
 
     while (1)
     {
-        pthread_mutex_lock(&shm_mutex);
+        // On ne verrouille QUE le mutex de ce slot
+        pthread_mutex_lock(&slot_mutexes[slot_index]);
 
-        while (shm_slot->status != SLOT_TO_MOVE && !stop_requested)
+        while (shm_slots[slot_index].status != SLOT_TO_MOVE && !stop_requested)
         {
-            pthread_cond_wait(&cond_move, &shm_mutex);
+            pthread_cond_wait(&cond_moves[slot_index], &slot_mutexes[slot_index]);
         }
 
         if (stop_requested)
         {
-            pthread_mutex_unlock(&shm_mutex);
+            pthread_mutex_unlock(&slot_mutexes[slot_index]);
             break;
         }
 
         // --- SHM CRITICAL SECTION ---
-        bool const moved = move_grid(&shm_slot->state, shm_slot->cmd);
+        bool const moved = move_grid(&shm_slots[slot_index].state, shm_slots[slot_index].cmd);
 
         if (moved)
         {
-            spawn_tile(&shm_slot->state);
-            // printf("[Move] Deplacement appliqué\n");
-        }
-        else
-        {
-            // printf("[Move] Deplacement invalide !\n");
+            spawn_tile(&shm_slots[slot_index].state);
         }
 
-        // Pass control to Goal Thread
-        shm_slot->status = SLOT_TO_GOAL;
-        pthread_cond_signal(&cond_goal);
+        // On passe le relais au Thread Goal de CE slot
+        shm_slots[slot_index].status = SLOT_TO_GOAL;
+        pthread_cond_signal(&cond_goals[slot_index]);
 
-        pthread_mutex_unlock(&shm_mutex);
+        pthread_mutex_unlock(&slot_mutexes[slot_index]);
     }
 
-    // printf("[Move] Fin du Thread.\n");
     return NULL;
 }
