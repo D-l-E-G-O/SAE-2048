@@ -44,6 +44,13 @@ static pid_t spawn_display_process(int *write_fd_ptr, const char *argv0)
         perror("[GAME] Erreur fatal: pipe creation");
         exit(EXIT_FAILURE);
     }
+
+    // ==========================================================
+    // Force la fermeture de ce descripteur d'écriture pour tous 
+    // les futurs enfants qui feront un execl().
+    // ==========================================================
+    fcntl(pipe_fd[1], F_SETFD, FD_CLOEXEC);
+
     pid_t pid = fork();
     if (pid < 0) {
         perror("[GAME] Erreur fatal: fork");
