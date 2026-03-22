@@ -18,6 +18,7 @@
 typedef enum
 {
     SLOT_FREE,
+    SLOT_IDLE,
     SLOT_TO_MOVE,
     SLOT_TO_GOAL
 } SlotStatus;
@@ -32,15 +33,17 @@ typedef struct SharedGameSlot
     SlotStatus status;
 } SharedGameSlot;
 
+// --- Variables globales dynamiques pour N slots ---
+extern int num_slots;
 extern int shm_id;
-extern SharedGameSlot *shm_slot;
+extern SharedGameSlot *shm_slots;
 
-// --- Synchronisation multi-thread ---
+// --- Synchronisation multi-thread (Tableaux dynamiques) ---
 extern pthread_mutex_t heap_mutex;
-extern pthread_mutex_t shm_mutex;
-extern pthread_cond_t cond_move;
-extern pthread_cond_t cond_goal;
-extern pthread_cond_t cond_free;
+extern pthread_mutex_t *slot_mutexes; // Un verrou par slot
+extern pthread_cond_t *cond_moves;    // Condition Move par slot
+extern pthread_cond_t *cond_goals;    // ondition Goal par slot
+extern pthread_cond_t *cond_frees;    // Condition Free/Idle par slot
 
 extern pthread_t main_thread_id;
 extern volatile sig_atomic_t stop_requested;
@@ -53,6 +56,7 @@ typedef struct ClientSession
     pid_t display_pid;
     int display_fd;
     GameState state;
+    int slot_index;
 } ClientSession;
 
 void *thread_move_routine(void *arg);
