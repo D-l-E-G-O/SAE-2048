@@ -1,7 +1,6 @@
 #define _XOPEN_SOURCE 700
 #include "../include/game_threads.h"
 #include "../include/game_logic.h"
-#include "../include/array_list.h"
 
 // =================================================================
 // GLOBALES
@@ -10,6 +9,7 @@
 int shm_id = -1;
 SharedGameSlot *shm_slot = NULL;
 
+pthread_mutex_t heap_mutex;
 pthread_mutex_t shm_mutex;
 pthread_cond_t cond_move;
 pthread_cond_t cond_goal;
@@ -125,7 +125,7 @@ static FILE *setup_input_pipe()
     }
 
     printf("[GAME] En attente du contrôleur (Input) sur %s...\n", NAMED_PIPE_PATH);
-    FILE *fp = fopen(NAMED_PIPE_PATH, "rb");
+    FILE *fp = fopen(NAMED_PIPE_PATH, "r+b");
 
     if (fp == NULL)
     {
@@ -145,7 +145,7 @@ void game_stop(int const sig)
 {
     if (sig == SIG_END_GAME || sig == SIG_CLEAN_EXIT || sig == SIGINT)
     {
-        printf("[GAME] Signal d'arrêt reçu (CTRL+C).\n");
+        // printf("[GAME] Signal d'arrêt reçu (CTRL+C).\n");
         stop_requested = 1;
     }
 }
@@ -168,6 +168,8 @@ int main(int argc, char *argv[])
     sigaction(SIG_END_GAME, &sa, NULL);
     sigaction(SIGINT, &sa, NULL);
 
+    signal(SIGPIPE, SIG_IGN);
+
     // 2. On sauvegarde l'identité du thread main pour que Goal puisse le viser
     main_thread_id = pthread_self();
 
@@ -185,6 +187,7 @@ int main(int argc, char *argv[])
     shm_slot->status = SLOT_FREE;
 
     // 4. Initialisation des Mutex et Cond Vars
+    pthread_mutex_init(&heap_mutex, NULL);
     pthread_mutex_init(&shm_mutex, NULL);
     pthread_cond_init(&cond_move, NULL);
     pthread_cond_init(&cond_goal, NULL);
@@ -214,7 +217,9 @@ int main(int argc, char *argv[])
             new_session.display_pid = spawn_display_process(&new_session.display_fd, argv[0]);
             init_game(&new_session.state);
             write(new_session.display_fd, &new_session.state, sizeof(GameState));
+            pthread_mutex_lock(&heap_mutex);
             array_list_push_back(&players, &new_session);
+            pthread_mutex_unlock(&heap_mutex);
 
             kill(new_session.input_pid, SIGUSR2); // Le Acknowledge initial
             continue;
@@ -222,11 +227,31 @@ int main(int argc, char *argv[])
 
         if (packet.cmd == CMD_QUIT)
         {
+            pthread_mutex_lock(&heap_mutex);
+            for (size_t i = 0; i < players.size; i++)
+            {
+                ClientSession const *s = array_list_get_pointer(&players, i);
+                if (s->input_pid == packet.sender_pid)
+                {
+                    // 1. Fermer l'affichage du joueur
+                    kill(s->display_pid, SIG_CLEAN_EXIT);
+
+                    // Attendre la mort du processus pour éviter les zombies
+                    waitpid(s->display_pid, NULL, 0);
+
+                    // 2. Le retirer du Tas
+                    array_list_erase(&players, i);
+                    printf("[GAME] Joueur %d déconnecté.\n", packet.sender_pid);
+                    break;
+                }
+            }
+            pthread_mutex_unlock(&heap_mutex);
             continue;
         }
 
         // Trouver le joueur en question dans le tas
         ClientSession *active_session = NULL;
+        pthread_mutex_lock(&heap_mutex);
         for (size_t i = 0; i < players.size; i++)
         {
             ClientSession *s = array_list_get_pointer_mut(&players, i);
@@ -237,9 +262,13 @@ int main(int argc, char *argv[])
             }
         }
 
+        // On fait une copie de l'état pendant qu'on est protégé
+        GameState const temp_state = active_session ? active_session->state : (GameState){0};
+        int const temp_fd = active_session ? active_session->display_fd : -1;
+        pthread_mutex_unlock(&heap_mutex);
+
         if (active_session != NULL)
         {
-
             // 5. Vérouiller le SHM et attendre qu'il soit dispo
             pthread_mutex_lock(&shm_mutex);
 
@@ -251,13 +280,12 @@ int main(int argc, char *argv[])
             if (!stop_requested)
             {
                 // Tas -> transfère SHM
-                shm_slot->state = active_session->state;
+                shm_slot->state = temp_state;
                 shm_slot->cmd = packet.cmd;
-                shm_slot->display_fd = active_session->display_fd;
-                shm_slot->input_pid = active_session->input_pid;
-                shm_slot->heap_session = active_session; // Liaison au tas
+                shm_slot->display_fd = temp_fd;
+                shm_slot->input_pid = packet.sender_pid;
 
-                // Pass control to Move thread
+                // Passer le contrôle au thread Move
                 shm_slot->status = SLOT_TO_MOVE;
                 pthread_cond_signal(&cond_move);
             }
@@ -266,7 +294,7 @@ int main(int argc, char *argv[])
     }
 
     // --- CLEANUP ---
-    printf("[GAME] Nettoyage et fermeture...\n");
+    // printf("[GAME] Nettoyage et fermeture...\n");
 
     // 1. Forcer l'arrêt des threads
     // Même si on sort de la boucle à cause d'une déconnexion (fread = 0)
@@ -295,6 +323,9 @@ int main(int argc, char *argv[])
     shmdt(shm_slot);
     shmctl(shm_id, IPC_RMID, NULL);
 
-    printf("[GAME] Arrêt complet.\n");
+    // Nettoyage du tas
+    array_list_deinit(&players);
+
+    // printf("[GAME] Arrêt complet.\n");
     return EXIT_SUCCESS;
 }

@@ -42,27 +42,38 @@ void *thread_goal_routine(void *arg)
         }
 
         // --- Transfère du SHM vers le Tas ---
-        // On copie l'état du jeu modifié dans le Tas
-        ClientSession *heap_session = (ClientSession *)shm_slot->heap_session;
-        heap_session->state = shm_slot->state;
-
-        // Le Acknowledge du joueur
-        if (shm_slot->state.game_over)
+        pthread_mutex_lock(&heap_mutex);
+        for (size_t i = 0; i < players.size; i++)
         {
-            kill(shm_slot->input_pid, SIG_CLEAN_EXIT);
+            ClientSession *s = array_list_get_pointer_mut(&players, i);
+            if (s->input_pid == shm_slot->input_pid)
+            {
+                s->state = shm_slot->state;
+                break;
+            }
+        }
+        pthread_mutex_unlock(&heap_mutex);
+
+        // On sauvegarde les infos nécessaires pour les signaux
+        bool const is_game_over = shm_slot->state.game_over;
+        pid_t const player_pid = shm_slot->input_pid;
+
+        // On libère la SHM immédiatement (Le slot est prêt pour le joueur suivant)
+        shm_slot->status = SLOT_FREE;
+        pthread_cond_signal(&cond_free);
+        pthread_mutex_unlock(&shm_mutex);
+
+        // --- Envoi des signaux (En dehors de la section critique) ---
+        if (is_game_over)
+        {
+            kill(player_pid, SIG_CLEAN_EXIT);
         }
         else
         {
-            kill(shm_slot->input_pid, SIGUSR2); // Envoyer le ACK
+            kill(player_pid, SIGUSR2);
         }
-
-        // Libérer le slot de SHM pour le joueur suivant
-        shm_slot->status = SLOT_FREE;
-        pthread_cond_signal(&cond_free);
-
-        pthread_mutex_unlock(&shm_mutex);
     }
 
-    printf("[Goal] Fin du Thread.\n");
+    // printf("[Goal] Fin du Thread.\n");
     return NULL;
 }

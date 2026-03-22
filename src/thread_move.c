@@ -46,6 +46,6 @@ void *thread_move_routine(void *arg)
         pthread_mutex_unlock(&shm_mutex);
     }
 
-    printf("[Move] Fin du Thread.\n");
+    // printf("[Move] Fin du Thread.\n");
     return NULL;
 }

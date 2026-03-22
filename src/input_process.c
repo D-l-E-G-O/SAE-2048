@@ -101,8 +101,8 @@ static UserCommand get_user_command()
 // Handler permettant de terminer le jeu
 void stop_game(int sig)
 {
-    printf("[INPUT] Signal d'arrêt reçu.\n");
-    // On lève le drapeau pour dire à la boucle principale de s'arrêter
+    // printf("[INPUT] Signal d'arrêt reçu.\n");
+    //  On lève le drapeau pour dire à la boucle principale de s'arrêter
     if (sig == SIG_CLEAN_EXIT)
     { // CTRL+C ou terminaison en cours de partie
         stop_requested = 1;
@@ -126,6 +126,9 @@ void ack_handler(int sig)
 
 int main(void)
 {
+    // Ignorer le crash si le serveur meurt brutalement
+    signal(SIGPIPE, SIG_IGN);
+
     // 1. Mise en place des handlers
     struct sigaction sa;
     sa.sa_handler = stop_game;
@@ -165,23 +168,17 @@ int main(void)
     {
         UserCommand const cmd = get_user_command();
 
-        // Si un signal d'arrêt est arrivé pendant la lecture du clavier
-        if (stop_requested)
-            break;
-
         if (cmd != CMD_NONE && can_send)
         {
-            packet.cmd = cmd;
-
-            if (write(pipe_fd, &packet, sizeof(InputPacket)) == -1)
-            {
-                // Le pipe a été fermé (le jeu a crashé ou s'est arrêté)
-                break;
-            }
-
             if (cmd == CMD_QUIT)
             {
-                break;
+                break; // On sort de la boucle, le nettoyage fera l'envoi
+            }
+
+            packet.cmd = cmd;
+            if (write(pipe_fd, &packet, sizeof(InputPacket)) == -1)
+            {
+                break; // Le serveur a crashé
             }
 
             can_send = 0;
@@ -195,9 +192,14 @@ int main(void)
     }
 
     // 6. Nettoyage
+
+    // On informe le moteur de la fin dans tous les cas
+    packet.cmd = CMD_QUIT;
+    write(pipe_fd, &packet, sizeof(InputPacket));
+
     close(pipe_fd);
     restore_mode(orig_termios); // Restaurer le terminal
-    printf("[INPUT] Déconnexion.\n");
+    // printf("[INPUT] Déconnexion.\n");
 
     return EXIT_SUCCESS;
 }

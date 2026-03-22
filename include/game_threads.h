@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <wait.h>
 #include "common.h"
+#include "array_list.h"
 
 /* Statut actuel de l'emplacement de mémoire partagé */
 typedef enum
@@ -28,7 +29,6 @@ typedef struct SharedGameSlot
     UserCommand cmd;
     int display_fd;
     pid_t input_pid;
-    void *heap_session;
     SlotStatus status;
 } SharedGameSlot;
 
@@ -36,6 +36,7 @@ extern int shm_id;
 extern SharedGameSlot *shm_slot;
 
 // --- Synchronisation multi-thread ---
+extern pthread_mutex_t heap_mutex;
 extern pthread_mutex_t shm_mutex;
 extern pthread_cond_t cond_move;
 extern pthread_cond_t cond_goal;
@@ -43,6 +44,8 @@ extern pthread_cond_t cond_free;
 
 extern pthread_t main_thread_id;
 extern volatile sig_atomic_t stop_requested;
+
+extern array_list players;
 
 typedef struct ClientSession
 {
