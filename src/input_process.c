@@ -116,7 +116,7 @@ void stop_game(int sig)
 // Handler pour l'acquittement
 void ack_handler(int sig)
 {
-    if (sig == SIGUSR1)
+    if (sig == SIGUSR2)
         can_send = 1; // Le moteur a fini de traiter notre coup
 }
 
@@ -138,7 +138,7 @@ int main(void)
     sa_ack.sa_handler = ack_handler;
     sa_ack.sa_flags = 0;
     sigemptyset(&sa_ack.sa_mask);
-    sigaction(SIGUSR1, &sa_ack, NULL);
+    sigaction(SIGUSR2, &sa_ack, NULL);
 
     // 2. Connexion au Pipe (Communication)
     int pipe_fd = connect_to_game_engine();
@@ -183,9 +183,9 @@ int main(void)
                     break;
                 }
                 can_send = 0; // On se bloque en attendant le feu vert du moteur
-                while (!can_send && !stop_requested)
+                while (!can_send && cmd != CMD_QUIT)
                 {
-                    pause(); // Attente passive du signal SIGUSR1
+                    pause(); // Attente passive du signal SIGUSR2
                 }
             }
 

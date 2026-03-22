@@ -24,6 +24,8 @@ volatile sig_atomic_t engine_busy = 0;
 
 ClientSession *active_session = NULL;
 
+array_list players;
+
 // =================================================================
 // FONCTIONS UTILITAIRES (Helpers)
 // =================================================================
@@ -141,6 +143,40 @@ static FILE *setup_input_pipe()
     return fp;
 }
 
+static bool equals(void const *a, void const *b)
+{
+    ClientSession ca = *(ClientSession *)a;
+    ClientSession cb = *(ClientSession *)b;
+    return ca.input_pid == cb.input_pid;
+}
+
+static void kill_session()
+{
+    sleep(1); // Pour laisser le temps à l'affichage
+    size_t i = array_list_find(&players, active_session, equals);
+    array_list_erase(&players, i);
+
+    // =============================================================
+    // NETTOYAGE
+    // =============================================================
+
+    // On tue Processus Affichage (avec SIG_CLEAN_EXIT car le processus Affichage a un handler)
+    // kill(active_session->display_pid, SIG_CLEAN_EXIT);
+
+    // On attend la mort du Processus Affichage
+    // waitpid(active_session->display_pid, NULL, 0);
+
+    //close(active_session->display_fd); // Cela provoquera EOF côté Display
+
+    //active_session = NULL;
+    printf("[GAME] Fin de la session.\n");
+    if (players.size == 0)
+    {
+        // On lève le drapeau pour dire à la boucle principale de s'arrêter
+        stop_requested = 1;
+    }
+}
+
 // =================================================================
 // HANDLERS
 // =================================================================
@@ -148,13 +184,12 @@ static FILE *setup_input_pipe()
 // Handler permettant de terminer le jeu
 void stop_game(int sig)
 {
+    size_t i;
+    printf("[GAME] Signal d'arrêt reçu (CTRL+C).\n");
     if (sig == SIG_END_GAME)
-    {             // Fin du jeu standard (pas spontanée)
-        sleep(1); // Pour laisser le temps à l'affichage
+    { // Fin du jeu standard (pas spontanée)
+        kill_session();
     }
-    printf("[GAME] Signal d'arrêt reçu.\n");
-    // On lève le drapeau pour dire à la boucle principale de s'arrêter
-    stop_requested = 1;
 }
 
 // =================================================================
@@ -163,7 +198,6 @@ void stop_game(int sig)
 
 int main(int argc, char *argv[])
 {
-    array_list players;
     array_list_init(&players, sizeof(ClientSession));
 
     (void)argc; // On ignore argc pour éviter le warning unused
@@ -222,7 +256,21 @@ int main(int argc, char *argv[])
             }
 
             array_list_push_back(&players, &client_session);
-            kill(client_session.input_pid, SIGUSR1);
+            kill(client_session.input_pid, SIGUSR2);
+            continue;
+        }
+
+        // Gestion de l'arrêt
+        if (packet.cmd == CMD_QUIT)
+        {
+            printf("[GAME] Signal d'arrêt reçu (q).\n");
+
+            // =============================================================
+            // NETTOYAGE
+            // =============================================================
+
+            kill_session();
+
             continue;
         }
 
@@ -248,34 +296,7 @@ int main(int argc, char *argv[])
                     usleep(1000);
                 }
 
-                // Gestion de l'arrêt
-                if (packet.cmd == CMD_QUIT)
-                {
-                    printf("[GAME] Signal d'arrêt reçu.\n");
-
-                    // =============================================================
-                    // NETTOYAGE
-                    // =============================================================
-
-                    // On tue Processus Affichage (avec SIG_CLEAN_EXIT car le processus Affichage a un handler)
-                    kill(session->display_pid, SIG_CLEAN_EXIT);
-
-                    // On attend la mort du Processus Affichage
-                    waitpid(session->display_pid, NULL, 0);
-
-                    // On tue le Processus Input (avec SIG_END_GAME car le processus Input a un handler)
-                    if (session->input_pid)
-                    {
-                        kill(session->input_pid, SIG_END_GAME);
-                    }
-
-                    printf("[GAME] Arrêt du système.\n");
-
-                    close(session->display_fd); // Cela provoquera EOF côté Display
-
-                    break;
-                }
-                kill(active_session->input_pid, SIGUSR1);
+                kill(active_session->input_pid, SIGUSR2);
                 break;
             }
         }
