@@ -15,8 +15,8 @@ CORE_DIR = $(BIN_DIR)/core
 INC_DIR  = include
 
 # --- Exécutables à produire ---
-TARGET_GAME    = $(CORE_DIR)/game_2048
-TARGET_INPUT   = $(CORE_DIR)/input
+TARGET_GAME    = $(BIN_DIR)/game_2048
+TARGET_INPUT   = $(BIN_DIR)/input
 TARGET_DISPLAY = $(CORE_DIR)/display
 
 # Liste de tous les exécutables pour la règle 'all'
