@@ -1,6 +1,7 @@
 #pragma once
 
 #include <pthread.h>
+#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -41,9 +42,9 @@ extern SharedGameSlot *shm_slots;
 // --- Synchronisation multi-thread (Tableaux dynamiques) ---
 extern pthread_mutex_t heap_mutex;
 extern pthread_mutex_t *slot_mutexes; // Un verrou par slot
-extern pthread_cond_t *cond_moves;    // Condition Move par slot
-extern pthread_cond_t *cond_goals;    // ondition Goal par slot
-extern pthread_cond_t *cond_frees;    // Condition Free/Idle par slot
+extern sem_t *sem_moves;              // Semaphore Move par slot
+extern sem_t *sem_goals;              // Semaphore Goal par slot
+extern sem_t *sem_frees;              // Semaphore Free/Idle par slot
 
 extern pthread_t main_thread_id;
 extern volatile sig_atomic_t stop_requested;

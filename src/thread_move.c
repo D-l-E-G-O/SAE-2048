@@ -19,7 +19,9 @@ void *thread_move_routine(void *arg)
 
         while (shm_slots[slot_index].status != SLOT_TO_MOVE && !stop_requested)
         {
-            pthread_cond_wait(&cond_moves[slot_index], &slot_mutexes[slot_index]);
+            pthread_mutex_unlock(&slot_mutexes[slot_index]);
+            sem_wait(&sem_moves[slot_index]);
+            pthread_mutex_lock(&slot_mutexes[slot_index]);
         }
 
         if (stop_requested)
@@ -38,7 +40,7 @@ void *thread_move_routine(void *arg)
 
         // On passe le relais au Thread Goal de CE slot
         shm_slots[slot_index].status = SLOT_TO_GOAL;
-        pthread_cond_signal(&cond_goals[slot_index]);
+        sem_post(&sem_goals[slot_index]);
 
         pthread_mutex_unlock(&slot_mutexes[slot_index]);
     }

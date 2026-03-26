@@ -12,9 +12,9 @@ SharedGameSlot *shm_slots = NULL;
 
 pthread_mutex_t heap_mutex;
 pthread_mutex_t *slot_mutexes = NULL;
-pthread_cond_t *cond_moves = NULL;
-pthread_cond_t *cond_goals = NULL;
-pthread_cond_t *cond_frees = NULL;
+sem_t *sem_moves = NULL;
+sem_t *sem_goals = NULL;
+sem_t *sem_frees = NULL;
 
 pthread_t main_thread_id;
 volatile sig_atomic_t stop_requested = 0;
@@ -29,9 +29,12 @@ static void get_display_path(char *buffer, size_t size, const char *argv0)
     strncpy(buffer, argv0, size - 1);
     buffer[size - 1] = '\0';
     char *last_slash = strrchr(buffer, '/');
-    if (last_slash != NULL) {
+    if (last_slash != NULL)
+    {
         *(last_slash + 1) = '\0';
-    } else {
+    }
+    else
+    {
         buffer[0] = '\0';
     }
     strncat(buffer, "display", size - strlen(buffer) - 1);
@@ -40,46 +43,45 @@ static void get_display_path(char *buffer, size_t size, const char *argv0)
 static pid_t spawn_display_process(int *write_fd_ptr, const char *argv0)
 {
     int pipe_fd[2];
-    if (pipe(pipe_fd) == -1) {
+    if (pipe(pipe_fd) == -1)
+    {
         perror("[GAME] Erreur fatal: pipe creation");
         exit(EXIT_FAILURE);
     }
 
     pid_t pid = fork();
-    if (pid < 0) {
+    if (pid < 0)
+    {
         perror("[GAME] Erreur fatal: fork");
         exit(EXIT_FAILURE);
     }
-    if (pid == 0) {
-        // ==========================================================
-        // LA SOLUTION BLINDÉE CONTRE LE DEADLOCK EST ICI
-        // On est dans le processus enfant (le futur Display)
-        // ==========================================================
-        
+    if (pid == 0)
+    {
         // 1. On ferme le bout d'écriture du nouveau pipe (celui de ce joueur)
         close(pipe_fd[1]);
-        
-        // 2. On ferme tous les bouts d'écriture des anciens joueurs 
+
+        // 2. On ferme tous les bouts d'écriture des anciens joueurs
         // que cet enfant a hérité accidentellement de son père.
-        for (size_t i = 0; i < players.size; i++) {
+        for (size_t i = 0; i < players.size; i++)
+        {
             ClientSession const *s = array_list_get_pointer(&players, i);
-            if (s->display_fd > 0) {
+            if (s->display_fd > 0)
+            {
                 close(s->display_fd); // On coupe le lien fantôme
             }
         }
-        // ==========================================================
 
         char fd_str[16];
         snprintf(fd_str, sizeof(fd_str), "%d", pipe_fd[0]);
         char path_to_display[256];
         get_display_path(path_to_display, sizeof(path_to_display), argv0);
-        
+
         execl(path_to_display, "display", fd_str, NULL);
-        
+
         perror("[GAME] Erreur fatal: execl display");
         exit(EXIT_FAILURE);
     }
-    
+
     // Processus père (game_main)
     close(pipe_fd[0]);
     *write_fd_ptr = pipe_fd[1];
@@ -88,15 +90,18 @@ static pid_t spawn_display_process(int *write_fd_ptr, const char *argv0)
 
 static FILE *setup_input_pipe()
 {
-    if (mkfifo(NAMED_PIPE_PATH, 0666) == -1) {
-        if (errno != EEXIST) {
+    if (mkfifo(NAMED_PIPE_PATH, 0666) == -1)
+    {
+        if (errno != EEXIST)
+        {
             perror("[GAME] Erreur mkfifo");
             exit(EXIT_FAILURE);
         }
     }
     printf("[GAME] En attente du contrôleur (Input) sur %s...\n", NAMED_PIPE_PATH);
     FILE *fp = fopen(NAMED_PIPE_PATH, "r+b");
-    if (fp == NULL) {
+    if (fp == NULL)
+    {
         perror("[GAME] Erreur ouverture pipe nommé");
         exit(EXIT_FAILURE);
     }
@@ -110,7 +115,8 @@ static FILE *setup_input_pipe()
 
 void game_stop(int const sig)
 {
-    if (sig == SIG_END_GAME || sig == SIG_CLEAN_EXIT || sig == SIGINT) {
+    if (sig == SIG_END_GAME || sig == SIG_CLEAN_EXIT || sig == SIGINT)
+    {
         stop_requested = 1;
     }
 }
@@ -122,12 +128,14 @@ void game_stop(int const sig)
 int main(int argc, char *argv[])
 {
     // L'argument N (nombre de joueurs max) est requis
-    if (argc < 2) {
+    if (argc < 2)
+    {
         fprintf(stderr, "Usage: %s <N_players>\n", argv[0]);
         return EXIT_FAILURE;
     }
     num_slots = atoi(argv[1]);
-    if (num_slots <= 0) num_slots = 1; // Au moins 1 joueur
+    if (num_slots <= 0)
+        num_slots = 1; // Au moins 1 joueur
 
     array_list_init(&players, sizeof(ClientSession));
 
@@ -147,7 +155,8 @@ int main(int argc, char *argv[])
 
     // 2. Création du segment de mémoire partagé (Dimensionné pour N parties)
     shm_id = shmget(IPC_PRIVATE, num_slots * sizeof(SharedGameSlot), IPC_CREAT | 0666);
-    if (shm_id < 0) {
+    if (shm_id < 0)
+    {
         perror("[GAME] shmget error");
         exit(EXIT_FAILURE);
     }
@@ -157,20 +166,21 @@ int main(int argc, char *argv[])
     // 3. Initialisation dynamique des Mutex et Threads
     pthread_mutex_init(&heap_mutex, NULL);
     slot_mutexes = malloc(num_slots * sizeof(pthread_mutex_t));
-    cond_moves   = malloc(num_slots * sizeof(pthread_cond_t));
-    cond_goals   = malloc(num_slots * sizeof(pthread_cond_t));
-    cond_frees   = malloc(num_slots * sizeof(pthread_cond_t));
+    sem_moves = malloc(num_slots * sizeof(sem_t));
+    sem_goals = malloc(num_slots * sizeof(sem_t));
+    sem_frees = malloc(num_slots * sizeof(sem_t));
 
     pthread_t *move_threads = malloc(num_slots * sizeof(pthread_t));
     pthread_t *goal_threads = malloc(num_slots * sizeof(pthread_t));
     int *thread_args = malloc(num_slots * sizeof(int));
 
-    for (int i = 0; i < num_slots; i++) {
+    for (int i = 0; i < num_slots; i++)
+    {
         shm_slots[i].status = SLOT_FREE;
         pthread_mutex_init(&slot_mutexes[i], NULL);
-        pthread_cond_init(&cond_moves[i], NULL);
-        pthread_cond_init(&cond_goals[i], NULL);
-        pthread_cond_init(&cond_frees[i], NULL);
+        sem_init(&sem_moves[i], 0, 0);
+        sem_init(&sem_goals[i], 0, 0);
+        sem_init(&sem_frees[i], 0, 0);
 
         thread_args[i] = i; // On passe l'index au thread
         pthread_create(&move_threads[i], NULL, thread_move_routine, &thread_args[i]);
@@ -192,11 +202,13 @@ int main(int argc, char *argv[])
         if (packet.cmd == CMD_HANDSHAKE)
         {
             int assigned_slot = -1;
-            
+
             // Chercher un slot libre
-            for (int i = 0; i < num_slots; i++) {
+            for (int i = 0; i < num_slots; i++)
+            {
                 pthread_mutex_lock(&slot_mutexes[i]);
-                if (shm_slots[i].status == SLOT_FREE) {
+                if (shm_slots[i].status == SLOT_FREE)
+                {
                     shm_slots[i].status = SLOT_IDLE; // Réservé pour ce joueur
                     assigned_slot = i;
                     pthread_mutex_unlock(&slot_mutexes[i]);
@@ -205,9 +217,10 @@ int main(int argc, char *argv[])
                 pthread_mutex_unlock(&slot_mutexes[i]);
             }
 
-            if (assigned_slot == -1) {
+            if (assigned_slot == -1)
+            {
                 printf("[GAME] Serveur plein, connexion refusée pour PID %d\n", packet.sender_pid);
-                kill(packet.sender_pid, SIG_CLEAN_EXIT); 
+                kill(packet.sender_pid, SIG_CLEAN_EXIT);
                 continue;
             }
 
@@ -217,7 +230,7 @@ int main(int argc, char *argv[])
             new_session.slot_index = assigned_slot; // ASSIGNATION DU SLOT
             init_game(&new_session.state);
             write(new_session.display_fd, &new_session.state, sizeof(GameState));
-            
+
             pthread_mutex_lock(&heap_mutex);
             array_list_push_back(&players, &new_session);
             pthread_mutex_unlock(&heap_mutex);
@@ -277,7 +290,9 @@ int main(int argc, char *argv[])
 
             while (shm_slots[s_idx].status != SLOT_IDLE && !stop_requested)
             {
-                pthread_cond_wait(&cond_frees[s_idx], &slot_mutexes[s_idx]);
+                pthread_mutex_unlock(&slot_mutexes[s_idx]);
+                sem_wait(&sem_frees[s_idx]);
+                pthread_mutex_lock(&slot_mutexes[s_idx]);
             }
 
             if (!stop_requested)
@@ -290,7 +305,7 @@ int main(int argc, char *argv[])
 
                 // Passer le contrôle au thread Move
                 shm_slots[s_idx].status = SLOT_TO_MOVE;
-                pthread_cond_signal(&cond_moves[s_idx]);
+                sem_post(&sem_moves[s_idx]);
             }
             pthread_mutex_unlock(&slot_mutexes[s_idx]);
         }
@@ -300,20 +315,19 @@ int main(int argc, char *argv[])
     stop_requested = 1;
 
     // 1. Réveiller tous les threads de tous les slots
-    for (int i = 0; i < num_slots; i++) {
-        pthread_mutex_lock(&slot_mutexes[i]);
-        pthread_cond_broadcast(&cond_moves[i]);
-        pthread_cond_broadcast(&cond_goals[i]);
-        pthread_cond_broadcast(&cond_frees[i]);
-        pthread_mutex_unlock(&slot_mutexes[i]);
-        
+    for (int i = 0; i < num_slots; i++)
+    {
+        sem_post(&sem_moves[i]);
+        sem_post(&sem_goals[i]);
+        sem_post(&sem_frees[i]);
+
         pthread_join(move_threads[i], NULL);
         pthread_join(goal_threads[i], NULL);
-        
+
         pthread_mutex_destroy(&slot_mutexes[i]);
-        pthread_cond_destroy(&cond_moves[i]);
-        pthread_cond_destroy(&cond_goals[i]);
-        pthread_cond_destroy(&cond_frees[i]);
+        sem_destroy(&sem_moves[i]);
+        sem_destroy(&sem_goals[i]);
+        sem_destroy(&sem_frees[i]);
     }
 
     // 2. Nettoyage du système IPC
@@ -327,17 +341,17 @@ int main(int argc, char *argv[])
     for (size_t i = 0; i < players.size; i++)
     {
         ClientSession const *s = array_list_get_pointer(&players, i);
-        kill(s->input_pid, SIG_CLEAN_EXIT); 
-        close(s->display_fd);               
+        kill(s->input_pid, SIG_CLEAN_EXIT);
+        close(s->display_fd);
     }
     pthread_mutex_unlock(&heap_mutex);
 
     // 4. Nettoyage mémoire
     array_list_deinit(&players);
     free(slot_mutexes);
-    free(cond_moves);
-    free(cond_goals);
-    free(cond_frees);
+    free(sem_moves);
+    free(sem_goals);
+    free(sem_frees);
     free(move_threads);
     free(goal_threads);
     free(thread_args);
