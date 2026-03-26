@@ -11,13 +11,12 @@ LDFLAGS  = -pthread
 SRC_DIR  = src
 OBJ_DIR  = obj
 BIN_DIR  = bin
-CORE_DIR = $(BIN_DIR)/core
 INC_DIR  = include
 
 # --- Exécutables à produire ---
 TARGET_GAME    = $(BIN_DIR)/game_2048
 TARGET_INPUT   = $(BIN_DIR)/input
-TARGET_DISPLAY = $(CORE_DIR)/display
+TARGET_DISPLAY = $(BIN_DIR)/display
 
 # Liste de tous les exécutables pour la règle 'all'
 # [CORRECTION] Ajout du launcher dans la liste globale
@@ -33,7 +32,7 @@ all: directories $(TARGETS)
 # 2. Création des répertoires
 directories:
 	@mkdir -p $(OBJ_DIR)
-	@mkdir -p $(CORE_DIR)
+	@mkdir -p $(BIN_DIR)
 
 # ==========================================
 #   Règles de Linkage (Création des exécutables)
