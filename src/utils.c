@@ -1,16 +1,15 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>      // Pour STDIN_FILENO
-#include <termios.h>     // Pour struct termios, tcgetattr, tcsetattr
+#include <unistd.h>  // Pour STDIN_FILENO
+#include <termios.h> // Pour struct termios, tcgetattr, tcsetattr
 #include "../include/utils.h"
 #include "../include/common.h"
-
 
 // =========================================================
 // GESTION DE L'AFFICHAGE (Utilisé par Display)
 // =========================================================
 
-void clear_screen() {
+void clear_screen()
+{
     // Utilisation des codes ANSI pour nettoyer le terminal
     // \033[H  : Place le curseur en haut à gauche (Home)
     // \033[2J : Efface tout l'écran (J)
@@ -28,7 +27,8 @@ void clear_screen() {
  * 1. Désactive le buffer de ligne (ICANON) : La saisie est détectée dès l'appui touche.
  * 2. Désactive l'écho (ECHO) : Les caractères tapés ne s'affichent pas.
  */
-struct termios set_raw_mode() {
+struct termios set_raw_mode()
+{
     struct termios orig_termios;
     struct termios raw;
 
@@ -51,7 +51,8 @@ struct termios set_raw_mode() {
     return orig_termios;
 }
 
-void restore_mode(struct termios orig_termios) {
+void restore_mode(struct termios orig_termios)
+{
     // Restaure la configuration sauvegardée (avec écho et buffer)
     tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
 }
@@ -60,16 +61,22 @@ void restore_mode(struct termios orig_termios) {
 // FONCTIONS DE DEBUG / AIDE
 // =========================================================
 
-void print_grid_ascii(const GameState *state) {
+void print_grid_ascii(const GameState *state)
+{
     printf("Score: %d\n", state->score);
     printf("---------------------\n");
-    for (int y = 0; y < GRID_SIZE; y++) {
+    for (int y = 0; y < GRID_SIZE; y++)
+    {
         printf("|");
-        for (int x = 0; x < GRID_SIZE; x++) {
+        for (int x = 0; x < GRID_SIZE; x++)
+        {
             int val = state->cells[y][x];
-            if (val == 0) {
+            if (val == 0)
+            {
                 printf("  .  "); // Point pour case vide
-            } else {
+            }
+            else
+            {
                 printf("%5d", val); // Alignement sur 5 espaces
             }
         }

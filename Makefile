@@ -11,16 +11,12 @@ LDFLAGS  = -pthread
 SRC_DIR  = src
 OBJ_DIR  = obj
 BIN_DIR  = bin
-CORE_DIR = $(BIN_DIR)/core
 INC_DIR  = include
 
 # --- Exécutables à produire ---
-TARGET_GAME    = $(CORE_DIR)/game_2048
-TARGET_INPUT   = $(CORE_DIR)/input
-TARGET_DISPLAY = $(CORE_DIR)/display
-
-# Le Launcher sera à la racine de bin/
-TARGET_LAUNCHER= $(BIN_DIR)/launcher
+TARGET_GAME    = $(BIN_DIR)/game_2048
+TARGET_INPUT   = $(BIN_DIR)/input
+TARGET_DISPLAY = $(BIN_DIR)/display
 
 # Liste de tous les exécutables pour la règle 'all'
 # [CORRECTION] Ajout du launcher dans la liste globale
@@ -36,13 +32,7 @@ all: directories $(TARGETS)
 # 2. Création des répertoires
 directories:
 	@mkdir -p $(OBJ_DIR)
-	@mkdir -p $(CORE_DIR)
-
-# [AJOUT] Règle pour lancer le jeu facilement
-run: all
-	@echo "Lancement du jeu via le launcher..."
-	./$(TARGET_LAUNCHER)
-
+	@mkdir -p $(BIN_DIR)
 
 # ==========================================
 #   Règles de Linkage (Création des exécutables)
@@ -53,7 +43,8 @@ GAME_OBJS = $(OBJ_DIR)/game_main.o \
             $(OBJ_DIR)/thread_move.o \
             $(OBJ_DIR)/thread_goal.o \
             $(OBJ_DIR)/game_logic.o \
-            $(OBJ_DIR)/utils.o
+            $(OBJ_DIR)/utils.o \
+            $(OBJ_DIR)/array_list.o
 
 $(TARGET_GAME): $(GAME_OBJS)
 	@echo "Linking Game Engine..."
@@ -67,11 +58,6 @@ $(TARGET_INPUT): $(OBJ_DIR)/input_process.o $(OBJ_DIR)/utils.o
 # C. Processus Affichage (Rendu graphique)
 $(TARGET_DISPLAY): $(OBJ_DIR)/display_process.o $(OBJ_DIR)/utils.o
 	@echo "Linking Display System..."
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
-
-# D. Launcher (Le processus père qui lance les autres)
-$(TARGET_LAUNCHER): $(OBJ_DIR)/launcher.o $(OBJ_DIR)/utils.o
-	@echo "Linking Launcher..."
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 # ==========================================

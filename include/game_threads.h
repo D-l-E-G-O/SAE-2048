@@ -1,42 +1,64 @@
 #pragma once
 
 #include <pthread.h>
+#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <errno.h>
 #include <wait.h>
 #include "common.h"
+#include "array_list.h"
 
-// --- VARIABLES PARTAGÉES (Déclarations "extern") ---
-// Le mot-clé "extern" dit : "C'est défini dans un autre .c, mais je l'utilise ici"
+/* Statut actuel de l'emplacement de mémoire partagé */
+typedef enum
+{
+    SLOT_FREE,
+    SLOT_IDLE,
+    SLOT_TO_MOVE,
+    SLOT_TO_GOAL
+} SlotStatus;
 
-extern GameState current_state;      // L'état du jeu
-extern pthread_mutex_t state_mutex;  // Le mutex pour protéger la grille
-extern pthread_cond_t cond_move;     // Condition pour réveiller le move
-extern pthread_cond_t cond_goal;     // Condition pour réveiller le goal
-
-// Structure pour la communication Thread Main -> Thread Move
-typedef struct InputSharedData {
+/* Structure du segment de mémoire partagé */
+typedef struct SharedGameSlot
+{
+    GameState state;
     UserCommand cmd;
-    bool has_new_cmd;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-} InputSharedData;
+    int display_fd;
+    pid_t input_pid;
+    SlotStatus status;
+} SharedGameSlot;
 
-extern InputSharedData input_data;  // Données venant du clavier
+// --- Variables globales dynamiques pour N slots ---
+extern int num_slots;
+extern int shm_id;
+extern SharedGameSlot *shm_slots;
 
-extern pthread_t main_thread_id;    // PID du thread main
+// --- Synchronisation multi-thread (Tableaux dynamiques) ---
+extern pthread_mutex_t heap_mutex;
+extern pthread_mutex_t *slot_mutexes; // Un verrou par slot
+extern sem_t *sem_moves;              // Semaphore Move par slot
+extern sem_t *sem_goals;              // Semaphore Goal par slot
+extern sem_t *sem_frees;              // Semaphore Free/Idle par slot
 
-// --- PROTOTYPES DES FONCTIONS DE THREADS ---
+extern pthread_t main_thread_id;
+extern volatile sig_atomic_t stop_requested;
+
+extern array_list players;
+
+typedef struct ClientSession
+{
+    pid_t input_pid;
+    pid_t display_pid;
+    int display_fd;
+    GameState state;
+    int slot_index;
+} ClientSession;
+
 void *thread_move_routine(void *arg);
 void *thread_goal_routine(void *arg);
-void *thread_main_routine(void *arg);
-
-void process_2048(pid_t pid_process_display);
-void process_display();
-int check_victory(int cells[GRID_SIZE][GRID_SIZE]);
-int check_defeat(int cells[GRID_SIZE][GRID_SIZE]);
